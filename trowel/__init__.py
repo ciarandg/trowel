@@ -1,6 +1,7 @@
 import sys
-from .clock_demo import ClockApp
+from .json_viewer import JsonViewerApp
 
 def run():
-    app = ClockApp()
+    json_file_path = sys.argv[1]
+    app = JsonViewerApp(json_file_path)
     app.run()

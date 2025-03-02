@@ -3,6 +3,13 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Tree
 
 class JsonTree(Tree):
+  BINDINGS = [
+    ("j", "cursor_down", "Cursor Down"),
+    ("k", "cursor_up", "Cursor Up"),
+    ("l", "select_cursor", "Select"),
+    ("h", "cursor_parent", "Cursor to parent")
+  ]
+
   def __init__(self, description, file_path):
     super().__init__(description)
     data = self._load_json_file(file_path)

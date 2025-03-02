@@ -1,7 +1,7 @@
 import sys
-from .json_viewer import JsonViewerApp
+from .mock_tf_plan_viewer import MockTfPlanViewerApp
 
 def run():
-    json_file_path = sys.argv[1]
-    app = JsonViewerApp(json_file_path)
+    # json_file_path = sys.argv[1]
+    app = MockTfPlanViewerApp()
     app.run()

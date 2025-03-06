@@ -48,15 +48,30 @@ class TfPlanTree(Tree):
           for f, change in changes.items():
             section = addr.add(f)
             before_val = change_dict["before"].get(f)
-            section.add_leaf(f"Before: {str(before_val)}")
             before_sensitive_val = change_dict["before_sensitive"].get(f)
-            section.add_leaf(f"Before (sensitive): {str(before_sensitive_val)}")
+            before_text = "Before: "
+            if not (before_val is None):
+                before_text += json.dumps(before_val)
+            elif not (before_sensitive_val is None):
+                before_text += f"{json.dumps(before_sensitive_val)} (sensitive)"
+            else:
+                before_text += json.dumps(None)
+
             after_val = change_dict["after"].get(f)
-            section.add_leaf(f"After: {str(after_val)}")
-            after_unknown_val = change_dict["after_unknown"].get(f)
-            section.add_leaf(f"After (unknown): {str(after_unknown_val)}")
             after_sensitive_val = change_dict["after_sensitive"].get(f)
-            section.add_leaf(f"After (sensitive): {str(after_sensitive_val)}")
+            after_unknown_val = change_dict["after_unknown"].get(f)
+            after_text = "After: "
+            if not after_val is None:
+                after_text += json.dumps(after_val)
+            elif not after_sensitive_val is None:
+                after_text += json.dumps(after_sensitive_val)
+            elif not after_unknown_val is None:
+                after_text += "(known after apply)"
+            else:
+                after_text += json.dumps(None)
+
+            section.add_leaf(before_text)
+            section.add_leaf(after_text)
         else:
             raise Exception(f"Invalid action_reason: {action_reason}")
 

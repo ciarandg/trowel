@@ -30,19 +30,33 @@ class TfPlanTree(Tree):
     removed = self.root.add("[bold red]Removed[/bold red]")
 
     for resource in self.json_data["resource_changes"]:
-        actions = resource["change"]["actions"]
+        change_dict = resource["change"]
+        actions = change_dict["actions"]
         action_reason = "action_reason" in resource and resource["action_reason"]
         if len(actions) == 1 and actions[0] == "no-op":
-            continue # no changes to make for this resource
+          continue # no changes to make for this resource
         if action_reason == "replace_because_cannot_update":
           addr = replaced.add(resource["address"])
 
-          for label in ["before", "after", "after_unknown", "before_sensitive", "after_sensitive"]:
-            section = addr.add(label)
-            entries = resource["change"][label].items()
-            for k, v in entries:
-              l = section.add(k)
-              l.add_leaf(str(v))
+          # get all field names
+          field_dict_keys = ["before", "after", "after_unknown", "before_sensitive", "after_sensitive"];
+          field_name_lists = [list(change_dict[k].keys()) for k in field_dict_keys]
+          field_names = sorted(list(set([x for xs in field_name_lists for x in xs])))
+
+          changes = {f: {} for f in field_names}
+
+          for f, change in changes.items():
+            section = addr.add(f)
+            before_val = change_dict["before"].get(f)
+            section.add_leaf(f"Before: {str(before_val)}")
+            before_sensitive_val = change_dict["before_sensitive"].get(f)
+            section.add_leaf(f"Before (sensitive): {str(before_sensitive_val)}")
+            after_val = change_dict["after"].get(f)
+            section.add_leaf(f"After: {str(after_val)}")
+            after_unknown_val = change_dict["after_unknown"].get(f)
+            section.add_leaf(f"After (unknown): {str(after_unknown_val)}")
+            after_sensitive_val = change_dict["after_sensitive"].get(f)
+            section.add_leaf(f"After (sensitive): {str(after_sensitive_val)}")
         else:
             raise Exception(f"Invalid action_reason: {action_reason}")
 

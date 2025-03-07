@@ -55,46 +55,59 @@ class Parser():
         out.append(after_text)
         return out
 
+    def _resource_verb(self, resource):
+      actions = resource["change"]["actions"]
+      if actions == ["no-op"]:
+          return None # no changes to make for this resource
+      elif actions == ["create"]:
+          return "CREATED"
+      elif actions == ["update"]:
+          return "UPDATED"
+      elif actions == ["delete"]:
+          return "DESTROYED"
+      elif actions == ["delete", "create"]:
+          return "REPLACED"
+      else:
+          raise Exception(f"Invalid resource actions array:", actions)
+
     def parse(self):
       """Convert raw TF plan JSON to a diff structure"""
       out = {}
 
       for resource in self.json_data["resource_changes"]:
+          verb = self._resource_verb(resource)
           change_dict = resource["change"]
           actions = change_dict["actions"]
           action_reason = "action_reason" in resource and resource["action_reason"]
-          if actions == ["no-op"]:
-            continue # no changes to make for this resource
-          elif actions == ["create"]:
-            label = Text(resource["address"], style=f"bold {Styles.CREATED.value}")
-            label.append(" will be created", style="default")
-            resource_addr = out.setdefault(label.markup, {})
-            field_names = self._all_field_names(resource)
-            for f in field_names:
-              resource_addr[f] = self._get_before_after(resource, f)
-          elif actions == ["update"]:
-            label = Text(resource["address"], style=f"bold {Styles.UPDATED.value}")
-            label.append(" will be updated", style="default")
-            resource_addr = out.setdefault(label.markup, {})
-            field_names = self._all_field_names(resource)
-            for f in field_names:
-              resource_addr[f] = self._get_before_after(resource, f)
-          elif actions == ["delete"]:
-            label = Text(resource["address"], style=f"bold {Styles.DESTROYED.value}")
-            label.append(" will be destroyed", style="default")
-            resource_addr = out.setdefault(label.markup, {})
-            field_names = self._all_field_names(resource)
-            for f in field_names:
-              resource_addr[f] = self._get_before_after(resource, f)
-          elif actions == ["delete", "create"]:
-            label = Text(resource["address"], style=f"bold {Styles.REPLACED.value}")
-            label.append(" will be replaced", style="default")
-            resource_addr = out.setdefault(label.markup, {})
-            field_names = self._all_field_names(resource)
-            for f in field_names:
-              resource_addr[f] = self._get_before_after(resource, f)
-          else:
-              raise Exception(f"Invalid resource actions array:", actions)
+          match verb:
+              case "CREATED":
+                label = Text(resource["address"], style=f"bold {Styles.CREATED.value}")
+                label.append(" will be created", style="default")
+                resource_addr = out.setdefault(label.markup, {})
+                field_names = self._all_field_names(resource)
+                for f in field_names:
+                  resource_addr[f] = self._get_before_after(resource, f)
+              case "UPDATED":
+                label = Text(resource["address"], style=f"bold {Styles.UPDATED.value}")
+                label.append(" will be updated", style="default")
+                resource_addr = out.setdefault(label.markup, {})
+                field_names = self._all_field_names(resource)
+                for f in field_names:
+                  resource_addr[f] = self._get_before_after(resource, f)
+              case "DESTROYED":
+                label = Text(resource["address"], style=f"bold {Styles.DESTROYED.value}")
+                label.append(" will be destroyed", style="default")
+                resource_addr = out.setdefault(label.markup, {})
+                field_names = self._all_field_names(resource)
+                for f in field_names:
+                  resource_addr[f] = self._get_before_after(resource, f)
+              case "REPLACED":
+                label = Text(resource["address"], style=f"bold {Styles.REPLACED.value}")
+                label.append(" will be replaced", style="default")
+                resource_addr = out.setdefault(label.markup, {})
+                field_names = self._all_field_names(resource)
+                for f in field_names:
+                  resource_addr[f] = self._get_before_after(resource, f)
       return out
 
 class TfPlanTree(Tree):

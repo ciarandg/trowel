@@ -33,7 +33,7 @@
 
     # Load a uv workspace from a workspace root.
     # Uv2nix treats all uv projects as workspace projects.
-    workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
+    workspace = uv2nix.lib.workspace.loadWorkspace {workspaceRoot = ./.;};
 
     # Create package overlay from workspace.
     overlay = workspace.mkPyprojectOverlay {
@@ -67,14 +67,15 @@
       # Use base package set from pyproject.nix builders
       (pkgs.callPackage pyproject-nix.build.packages {
         inherit python;
-      }).overrideScope
-        (
-          lib.composeManyExtensions [
-            pyproject-build-systems.overlays.default
-            overlay
-            pyprojectOverrides
-          ]
-        );
+      })
+      .overrideScope
+      (
+        lib.composeManyExtensions [
+          pyproject-build-systems.overlays.default
+          overlay
+          pyprojectOverrides
+        ]
+      );
   in {
     packages.${system} = {
       trowel = pythonSet.mkVirtualEnv "trowel" workspace.deps.default;

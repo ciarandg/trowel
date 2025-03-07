@@ -1,6 +1,14 @@
+from enum import Enum
 import json
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Tree
+
+class Styles(Enum):
+    ADDED = "green"
+    MODIFIED = "yellow"
+    REPLACED = "purple"
+    REMOVED = "red"
 
 class Parser():
     def __init__(self, json_data):
@@ -50,10 +58,6 @@ class Parser():
     def parse(self):
       """Convert raw TF plan JSON to a diff structure"""
       out = {}
-      added = out.setdefault("[bold green]Added[/bold green]", {})
-      modified = out.setdefault("[bold yellow]Modified[/bold yellow]", {})
-      replaced = out.setdefault("[bold red]Replaced[/bold red]", {})
-      removed = out.setdefault("[bold red]Removed[/bold red]", {})
 
       for resource in self.json_data["resource_changes"]:
           change_dict = resource["change"]
@@ -62,22 +66,30 @@ class Parser():
           if actions == ["no-op"]:
             continue # no changes to make for this resource
           elif actions == ["create"]:
-            resource_addr = added.setdefault(resource["address"], {})
+            label = Text(resource["address"], style=f"bold {Styles.ADDED.value}")
+            label.append(" will be created", style="default")
+            resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)
             for f in field_names:
               resource_addr[f] = self._get_before_after(resource, f)
           elif actions == ["update"]:
-            resource_addr = modified.setdefault(resource["address"], {})
+            label = Text(resource["address"], style=f"bold {Styles.MODIFIED.value}")
+            label.append(" will be updated", style="default")
+            resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)
             for f in field_names:
               resource_addr[f] = self._get_before_after(resource, f)
           elif actions == ["delete"]:
-            resource_addr = removed.setdefault(resource["address"], {})
+            label = Text(resource["address"], style=f"bold {Styles.REMOVED.value}")
+            label.append(" will be destroyed", style="default")
+            resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)
             for f in field_names:
               resource_addr[f] = self._get_before_after(resource, f)
           elif actions == ["delete", "create"]:
-            resource_addr = replaced.setdefault(resource["address"], {})
+            label = Text(resource["address"], style=f"bold {Styles.REPLACED.value}")
+            label.append(" will be replaced", style="default")
+            resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)
             for f in field_names:
               resource_addr[f] = self._get_before_after(resource, f)

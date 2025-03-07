@@ -5,10 +5,22 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Tree
 
 class Verbs(Enum):
-    CREATED = "green"
-    UPDATED = "yellow"
-    REPLACED = "purple"
-    DESTROYED = "red"
+    CREATE = {
+      "color": "green",
+      "past_tense": "created"
+    }
+    UPDATE = {
+      "color": "yellow",
+      "past_tense": "updated"
+    }
+    REPLACE = {
+      "color": "purple",
+      "past_tense": "replaced"
+    }
+    DESTROY = {
+      "color": "red",
+      "past_tense": "destroyed"
+    }
 
 class Parser():
     def __init__(self, json_data):
@@ -21,7 +33,7 @@ class Parser():
         field_name_lists = [list(e.keys()) for e in filtered]
         return sorted(list(set([x for xs in field_name_lists for x in xs])))
 
-    def _get_before_after(self, resource, field_name):
+    def field_before_after(self, resource, field_name):
         out = []
         change_dict = resource["change"]
         before = change_dict.get("before")
@@ -60,15 +72,21 @@ class Parser():
       if actions == ["no-op"]:
           return None # no changes to make for this resource
       elif actions == ["create"]:
-          return Verbs.CREATED.name
+          return Verbs.CREATE
       elif actions == ["update"]:
-          return Verbs.UPDATED.name
+          return Verbs.UPDATE
       elif actions == ["delete"]:
-          return Verbs.DESTROYED.name
+          return Verbs.DESTROY
       elif actions == ["delete", "create"]:
-          return Verbs.REPLACED.name
+          return Verbs.REPLACE
       else:
           raise Exception(f"Invalid resource actions array:", actions)
+
+    def _resource_label(self, resource):
+      verb = self._resource_verb(resource)
+      label = Text(resource["address"], style=f"bold {verb.value['color']}")
+      label.append(f" will be {verb.value['past_tense']}", style="default")
+      return label
 
     def parse(self):
       """Convert raw TF plan JSON to a diff structure"""
@@ -76,38 +94,12 @@ class Parser():
 
       for resource in self.json_data["resource_changes"]:
           verb = self._resource_verb(resource)
-          change_dict = resource["change"]
-          actions = change_dict["actions"]
-          action_reason = "action_reason" in resource and resource["action_reason"]
-          match verb:
-              case Verbs.CREATED.name:
-                label = Text(resource["address"], style=f"bold {Verbs.CREATED.value}")
-                label.append(" will be created", style="default")
-                resource_addr = out.setdefault(label.markup, {})
-                field_names = self._all_field_names(resource)
-                for f in field_names:
-                  resource_addr[f] = self._get_before_after(resource, f)
-              case Verbs.UPDATED.name:
-                label = Text(resource["address"], style=f"bold {Verbs.UPDATED.value}")
-                label.append(" will be updated", style="default")
-                resource_addr = out.setdefault(label.markup, {})
-                field_names = self._all_field_names(resource)
-                for f in field_names:
-                  resource_addr[f] = self._get_before_after(resource, f)
-              case Verbs.DESTROYED.name:
-                label = Text(resource["address"], style=f"bold {Verbs.DESTROYED.value}")
-                label.append(" will be destroyed", style="default")
-                resource_addr = out.setdefault(label.markup, {})
-                field_names = self._all_field_names(resource)
-                for f in field_names:
-                  resource_addr[f] = self._get_before_after(resource, f)
-              case Verbs.REPLACED.name:
-                label = Text(resource["address"], style=f"bold {Verbs.REPLACED.value}")
-                label.append(" will be replaced", style="default")
-                resource_addr = out.setdefault(label.markup, {})
-                field_names = self._all_field_names(resource)
-                for f in field_names:
-                  resource_addr[f] = self._get_before_after(resource, f)
+          if not verb:
+              continue # resource is no-op
+          label = self._resource_label(resource)
+          resource_entry = out.setdefault(label.markup, {})
+          for f in self._all_field_names(resource):
+            resource_entry[f] = self.field_before_after(resource, f)
       return out
 
 class TfPlanTree(Tree):

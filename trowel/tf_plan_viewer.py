@@ -4,7 +4,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Tree
 
-class Styles(Enum):
+class Verbs(Enum):
     CREATED = "green"
     UPDATED = "yellow"
     REPLACED = "purple"
@@ -60,13 +60,13 @@ class Parser():
       if actions == ["no-op"]:
           return None # no changes to make for this resource
       elif actions == ["create"]:
-          return "CREATED"
+          return Verbs.CREATED.name
       elif actions == ["update"]:
-          return "UPDATED"
+          return Verbs.UPDATED.name
       elif actions == ["delete"]:
-          return "DESTROYED"
+          return Verbs.DESTROYED.name
       elif actions == ["delete", "create"]:
-          return "REPLACED"
+          return Verbs.REPLACED.name
       else:
           raise Exception(f"Invalid resource actions array:", actions)
 
@@ -80,29 +80,29 @@ class Parser():
           actions = change_dict["actions"]
           action_reason = "action_reason" in resource and resource["action_reason"]
           match verb:
-              case "CREATED":
-                label = Text(resource["address"], style=f"bold {Styles.CREATED.value}")
+              case Verbs.CREATED.name:
+                label = Text(resource["address"], style=f"bold {Verbs.CREATED.value}")
                 label.append(" will be created", style="default")
                 resource_addr = out.setdefault(label.markup, {})
                 field_names = self._all_field_names(resource)
                 for f in field_names:
                   resource_addr[f] = self._get_before_after(resource, f)
-              case "UPDATED":
-                label = Text(resource["address"], style=f"bold {Styles.UPDATED.value}")
+              case Verbs.UPDATED.name:
+                label = Text(resource["address"], style=f"bold {Verbs.UPDATED.value}")
                 label.append(" will be updated", style="default")
                 resource_addr = out.setdefault(label.markup, {})
                 field_names = self._all_field_names(resource)
                 for f in field_names:
                   resource_addr[f] = self._get_before_after(resource, f)
-              case "DESTROYED":
-                label = Text(resource["address"], style=f"bold {Styles.DESTROYED.value}")
+              case Verbs.DESTROYED.name:
+                label = Text(resource["address"], style=f"bold {Verbs.DESTROYED.value}")
                 label.append(" will be destroyed", style="default")
                 resource_addr = out.setdefault(label.markup, {})
                 field_names = self._all_field_names(resource)
                 for f in field_names:
                   resource_addr[f] = self._get_before_after(resource, f)
-              case "REPLACED":
-                label = Text(resource["address"], style=f"bold {Styles.REPLACED.value}")
+              case Verbs.REPLACED.name:
+                label = Text(resource["address"], style=f"bold {Verbs.REPLACED.value}")
                 label.append(" will be replaced", style="default")
                 resource_addr = out.setdefault(label.markup, {})
                 field_names = self._all_field_names(resource)

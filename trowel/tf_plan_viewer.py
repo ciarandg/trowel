@@ -155,14 +155,16 @@ class ExperimentalWarning(Label):
 class TfPlanViewerApp(App):
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
 
-    def __init__(self, json_file_path):
+    def __init__(self, json_file_path, hide_experimental_warning):
         super().__init__()
         self.json_file_path = json_file_path
+        self.hide_experimental_warning = hide_experimental_warning
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
-        yield ExperimentalWarning()
+        if not self.hide_experimental_warning:
+            yield ExperimentalWarning()
         yield Footer()
         yield TfPlanTree("Plan Output", self.json_file_path)
 

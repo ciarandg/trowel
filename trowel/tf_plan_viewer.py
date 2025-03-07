@@ -2,7 +2,7 @@ from enum import Enum
 import json
 from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header, Tree
+from textual.widgets import Footer, Header, Label, Rule, Tree
 
 
 class Verbs(Enum):
@@ -142,6 +142,16 @@ class TfPlanTree(Tree):
             node.add_leaf(str(data))
 
 
+class ExperimentalWarning(Label):
+    def __init__(self):
+        text = Text(
+          "WARNING: This app is experimental and untested. Do not trust its output!",
+          style="red bold underline"
+        )
+        super().__init__(text)
+        self.styles.padding = 1
+
+
 class TfPlanViewerApp(App):
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
 
@@ -152,6 +162,7 @@ class TfPlanViewerApp(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
+        yield ExperimentalWarning()
         yield Footer()
         yield TfPlanTree("Plan Output", self.json_file_path)
 

@@ -5,10 +5,10 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Tree
 
 class Styles(Enum):
-    ADDED = "green"
-    MODIFIED = "yellow"
+    CREATED = "green"
+    UPDATED = "yellow"
     REPLACED = "purple"
-    REMOVED = "red"
+    DESTROYED = "red"
 
 class Parser():
     def __init__(self, json_data):
@@ -66,21 +66,21 @@ class Parser():
           if actions == ["no-op"]:
             continue # no changes to make for this resource
           elif actions == ["create"]:
-            label = Text(resource["address"], style=f"bold {Styles.ADDED.value}")
+            label = Text(resource["address"], style=f"bold {Styles.CREATED.value}")
             label.append(" will be created", style="default")
             resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)
             for f in field_names:
               resource_addr[f] = self._get_before_after(resource, f)
           elif actions == ["update"]:
-            label = Text(resource["address"], style=f"bold {Styles.MODIFIED.value}")
+            label = Text(resource["address"], style=f"bold {Styles.UPDATED.value}")
             label.append(" will be updated", style="default")
             resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)
             for f in field_names:
               resource_addr[f] = self._get_before_after(resource, f)
           elif actions == ["delete"]:
-            label = Text(resource["address"], style=f"bold {Styles.REMOVED.value}")
+            label = Text(resource["address"], style=f"bold {Styles.DESTROYED.value}")
             label.append(" will be destroyed", style="default")
             resource_addr = out.setdefault(label.markup, {})
             field_names = self._all_field_names(resource)

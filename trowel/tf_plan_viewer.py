@@ -13,8 +13,8 @@ class Verbs(Enum):
 
 
 class Parser:
-    def __init__(self, json_data):
-        self.json_data = json_data
+    def __init__(self, json_plan):
+        self.json_plan = json_plan
 
     def _all_field_names(self, resource):
         keys = [
@@ -96,7 +96,7 @@ class Parser:
         """Convert raw TF plan JSON to a diff structure"""
         out = {}
 
-        for resource in self.json_data["resource_changes"]:
+        for resource in self.json_plan["resource_changes"]:
             verb = self._resource_verb(resource)
             if not verb:
                 continue  # resource is no-op
@@ -119,15 +119,10 @@ class TfPlanTree(Tree):
     show_guides = True
     guide_depth = 4
 
-    def __init__(self, description, json_file_path):
+    def __init__(self, description, json_plan):
         super().__init__(description)
-        json_data = self._load_json_file(json_file_path)
-        parser = Parser(json_data)
+        parser = Parser(json_plan)
         self._build_tree(parser.parse(), self.root)
-
-    def _load_json_file(self, file_path: str):
-        with open(file_path, "r", encoding="utf-8") as file:
-            return json.load(file)
 
     def _build_tree(self, data, node):
         """Recursively build a tree structure from a nested dictionary."""
@@ -155,9 +150,9 @@ class ExperimentalWarning(Label):
 class TfPlanViewerApp(App):
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
 
-    def __init__(self, json_file_path, hide_experimental_warning):
+    def __init__(self, json_plan, hide_experimental_warning):
         super().__init__()
-        self.json_file_path = json_file_path
+        self.json_plan = json_plan
         self.hide_experimental_warning = hide_experimental_warning
 
     def compose(self) -> ComposeResult:
@@ -166,7 +161,7 @@ class TfPlanViewerApp(App):
         if not self.hide_experimental_warning:
             yield ExperimentalWarning()
         yield Footer()
-        yield TfPlanTree("Plan Output", self.json_file_path)
+        yield TfPlanTree("Plan Output", self.json_plan)
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""

@@ -1,7 +1,7 @@
 # Trowel
 
 > [!caution]
-> This app is expermiental and untested. Do not trust its output!
+> This app is experimental and untested. Do not trust its output!
 
 Trowel is a TUI wrapper for OpenTofu that lets you inspect plans interactively.
 

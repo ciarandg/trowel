@@ -9,6 +9,9 @@ Trowel is a TUI wrapper for OpenTofu that lets you inspect plans interactively.
 
 When you run `trowel` without any arguments, it creates a tempfile, and runs `tofu plan -out=<tempfile-path>`, writing a binary plan to that file. Then, it runs `tofu show -json <tempfile-path>`, captures the JSON output, parses it, and presents it in a TUI interface.
 
+> [!warning]
+> Please note that unless you use the `--plan-file` argument to supply an existing plan file, `trowel` will write potentially sensitive data to `/tmp`.
+
 ## Installation
 
 Currently, `trowel` is packaged via a Nix Flake (see `flake.nix`) and via the [uv](https://github.com/astral-sh/uv) package manager. It is not yet hosted on any external package repositories.

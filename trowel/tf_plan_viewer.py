@@ -6,10 +6,10 @@ from textual.widgets import Footer, Header, Label, Rule, Tree
 
 
 class Verbs(Enum):
-    CREATE = {"color": "green", "past_tense": "created"}
-    UPDATE = {"color": "yellow", "past_tense": "updated"}
-    REPLACE = {"color": "purple", "past_tense": "replaced"}
-    DESTROY = {"color": "red", "past_tense": "destroyed"}
+    CREATE = {"color": "green", "past_tense": "created", "icon": "+", "sort_key": 0}
+    UPDATE = {"color": "yellow", "past_tense": "updated", "icon": "~", "sort_key": 3}
+    REPLACE = {"color": "purple", "past_tense": "replaced", "icon": "r", "sort_key": 2}
+    DESTROY = {"color": "red", "past_tense": "destroyed", "icon": "-", "sort_key": 1}
 
 
 class Parser:
@@ -29,7 +29,7 @@ class Parser:
         field_name_lists = [list(e.keys()) for e in filtered]
         return sorted(list(set([x for xs in field_name_lists for x in xs])))
 
-    def field_before_after(self, resource, field_name):
+    def _field_before_after(self, resource, field_name):
         out = []
         change_dict = resource["change"]
         before = change_dict.get("before")
@@ -92,7 +92,18 @@ class Parser:
         label.append(f" will be {verb.value['past_tense']}", style="default")
         return label
 
-    def parse(self):
+    def parse_counts(self):
+        """Convert raw TF plan JSON to modification counts by verb"""
+        out = {}
+        for resource in self.json_plan["resource_changes"]:
+            verb = self._resource_verb(resource)
+            if verb is None:
+                continue
+            out.setdefault(verb, 0)
+            out[verb] += 1
+        return out
+
+    def parse_diff(self):
         """Convert raw TF plan JSON to a diff structure"""
         out = {}
 
@@ -103,7 +114,7 @@ class Parser:
             label = self._resource_label(resource)
             resource_entry = out.setdefault(label.markup, {})
             for f in self._all_field_names(resource):
-                resource_entry[f] = self.field_before_after(resource, f)
+                resource_entry[f] = self._field_before_after(resource, f)
         return out
 
 
@@ -122,7 +133,7 @@ class TfPlanTree(Tree):
     def __init__(self, description, json_plan):
         super().__init__(description)
         parser = Parser(json_plan)
-        self._build_tree(parser.parse(), self.root)
+        self._build_tree(parser.parse_diff(), self.root)
 
     def _build_tree(self, data, node):
         """Recursively build a tree structure from a nested dictionary."""
@@ -147,7 +158,24 @@ class ExperimentalWarning(Label):
         self.styles.padding = 1
 
 
+class Summary(Label):
+    def __init__(self, json_plan):
+        parser = Parser(json_plan)
+        counts = parser.parse_counts()
+        sorted_counts = sorted(counts.items(), key=lambda pair: pair[0].value['sort_key'])
+        text = Text()
+        for index, (verb, count) in enumerate(sorted_counts):
+            text.append(
+                f"{verb.value['icon']}{count}",
+                style=f"bold {verb.value['color']}"
+            )
+            if index < len(counts) - 1:
+                text.append(" ")
+        super().__init__(text.markup)
+
+
 class TfPlanViewerApp(App):
+    CSS_PATH = "app.tcss"
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
 
     def __init__(self, json_plan, hide_experimental_warning):
@@ -160,8 +188,9 @@ class TfPlanViewerApp(App):
         yield Header()
         if not self.hide_experimental_warning:
             yield ExperimentalWarning()
-        yield Footer()
         yield TfPlanTree("Plan Output", self.json_plan)
+        yield Summary(self.json_plan)
+        yield Footer()
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""

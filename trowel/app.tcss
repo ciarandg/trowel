@@ -1,7 +1,0 @@
-Tree {
-  background: $background;
-}
-
-Tree:focus {
-  background-tint: black 0%;
-}

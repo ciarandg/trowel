@@ -29,8 +29,7 @@ class Parser:
         field_name_lists = [list(e.keys()) for e in filtered]
         return sorted(list(set([x for xs in field_name_lists for x in xs])))
 
-    def _field_before_after(self, resource, field_name):
-        out = []
+    def _field_before(self, resource, field_name):
         change_dict = resource["change"]
         before = change_dict.get("before")
         before_val = (
@@ -40,14 +39,19 @@ class Parser:
         before_sensitive_val = (
             before_sensitive.get(field_name) if before_sensitive else None
         )  # before_sensitive is None for create operations
-        before_text = "Before: "
+        out = {
+          "value": None,
+          "sensitive": False,
+        }
         if not (before_val is None):
-            before_text += json.dumps(before_val)
+            out["value"] = before_val
         elif not (before_sensitive_val is None):
-            before_text += f"{json.dumps(before_sensitive_val)} (sensitive)"
-        else:
-            before_text += json.dumps(None)
+            out["value"] = before_sensitive_val
+            out["sensitive"] = True
+        return out
 
+    def _field_after(self, resource, field_name):
+        change_dict = resource["change"]
         after = change_dict.get("after")
         after_val = (
             after.get(field_name) if after else None
@@ -57,19 +61,25 @@ class Parser:
             after_sensitive.get(field_name) if after_sensitive else None
         )  # after_sensitive is None for destroy operations
         after_unknown_val = change_dict["after_unknown"].get(field_name)
-        after_text = "After: "
+        out = {
+            "value": None,
+            "known_after_apply": False,
+        }
         if not after_val is None:
-            after_text += json.dumps(after_val)
+            out["value"] = after_val
         elif not after_sensitive_val is None:
-            after_text += json.dumps(after_sensitive_val)
+            out["value"] = after_sensitive_val
         elif not after_unknown_val is None:
-            after_text += "(known after apply)"
-        else:
-            after_text += json.dumps(None)
-
-        out.append(before_text)
-        out.append(after_text)
+            out["known_after_apply"] = True
         return out
+
+    def _field_before_after(self, resource, field_name):
+        change_dict = resource["change"]
+        before = self._field_before(resource, field_name)
+        before_text = "(sensitive value)" if before["sensitive"] else json.dumps(before["value"])
+        after = self._field_after(resource, field_name)
+        after_text = "(known after apply)" if after["known_after_apply"] else json.dumps(after["value"])
+        return f"{before_text} -> {after_text}"
 
     def _resource_verb(self, resource):
         actions = resource["change"]["actions"]
@@ -112,9 +122,9 @@ class Parser:
             if not verb:
                 continue  # resource is no-op
             label = self._resource_label(resource)
-            resource_entry = out.setdefault(label.markup, {})
+            resource_entry = out.setdefault(label.markup, [])
             for f in self._all_field_names(resource):
-                resource_entry[f] = self._field_before_after(resource, f)
+                resource_entry.append(f"{f} {self._field_before_after(resource, f)}")
         return out
 
 

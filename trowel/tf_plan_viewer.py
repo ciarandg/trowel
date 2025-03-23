@@ -10,6 +10,7 @@ class Verbs(Enum):
     UPDATE = {"color": "yellow", "past_tense": "updated", "icon": "~", "sort_key": 3}
     REPLACE = {"color": "purple", "past_tense": "replaced", "icon": "r", "sort_key": 2}
     DESTROY = {"color": "red", "past_tense": "destroyed", "icon": "-", "sort_key": 1}
+    READ = {"color": "cyan", "past_tense": "read", "icon": "?", "sort_key": 4}
 
 
 class Parser:
@@ -93,6 +94,8 @@ class Parser:
             return Verbs.DESTROY
         elif actions == ["delete", "create"]:
             return Verbs.REPLACE
+        elif actions == ["read"]:
+            return Verbs.READ
         else:
             raise Exception(f"Invalid resource actions array:", actions)
 

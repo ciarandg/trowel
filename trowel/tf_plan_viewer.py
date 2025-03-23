@@ -79,7 +79,7 @@ class Parser:
         before_text = "(sensitive value)" if before["sensitive"] else json.dumps(before["value"])
         after = self._field_after(resource, field_name)
         after_text = "(known after apply)" if after["known_after_apply"] else json.dumps(after["value"])
-        return f"{before_text} -> {after_text}"
+        return [before_text, after_text]
 
     def _resource_verb(self, resource):
         actions = resource["change"]["actions"]
@@ -123,8 +123,14 @@ class Parser:
                 continue  # resource is no-op
             label = self._resource_label(resource)
             resource_entry = out.setdefault(label.markup, [])
+            unchanged_count = 0
             for f in self._all_field_names(resource):
-                resource_entry.append(f"{f} {self._field_before_after(resource, f)}")
+                [before_text, after_text] = self._field_before_after(resource, f)
+                if before_text != after_text:
+                    resource_entry.append(f"{f} {before_text} -> {after_text}")
+                else:
+                    unchanged_count += 1
+            resource_entry.append(f"{unchanged_count} unchanged")
         return out
 
 

@@ -2,7 +2,7 @@ from enum import Enum
 import json
 from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header, Label, Rule, Tree
+from textual.widgets import Footer, Header, Label, Rule, Static, TextArea, Tree
 
 
 class Verbs(Enum):
@@ -146,8 +146,8 @@ class TfPlanTree(Tree):
     show_guides = True
     guide_depth = 4
 
-    def __init__(self, description, json_plan):
-        super().__init__(description)
+    def __init__(self, description, json_plan, id=None):
+        super().__init__(description, id=id)
         parser = Parser(json_plan)
         self._build_tree(parser.parse_diff(), self.root)
 
@@ -175,7 +175,7 @@ class ExperimentalWarning(Label):
 
 
 class Summary(Label):
-    def __init__(self, json_plan):
+    def __init__(self, json_plan, id=None):
         parser = Parser(json_plan)
         counts = parser.parse_counts()
         sorted_counts = sorted(counts.items(), key=lambda pair: pair[0].value['sort_key'])
@@ -187,16 +187,22 @@ class Summary(Label):
             )
             if index < len(counts) - 1:
                 text.append(" ")
-        super().__init__(text.markup)
+        super().__init__(text.markup, id=id)
 
 
 class TfPlanViewerApp(App):
     CSS_PATH = "app.tcss"
-    BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
+    BINDINGS = [("d", "toggle_dark", "Toggle dark mode"),
+                ("v", "toggle_view", "Toggle view")]
 
-    def __init__(self, json_plan, hide_experimental_warning):
+    def __init__(self, json_plan, text_plan, hide_experimental_warning):
         super().__init__()
+
+        self.tree_view = True
+        self.add_class("treeview")
+
         self.json_plan = json_plan
+        self.text_plan = text_plan
         self.hide_experimental_warning = hide_experimental_warning
 
     def compose(self) -> ComposeResult:
@@ -204,8 +210,10 @@ class TfPlanViewerApp(App):
         yield Header()
         if not self.hide_experimental_warning:
             yield ExperimentalWarning()
-        yield TfPlanTree("Plan Output", self.json_plan)
-        yield Summary(self.json_plan)
+        yield TfPlanTree("Plan Output", self.json_plan, id="tree-plan")
+        if self.text_plan:
+            yield Static(Text(self.text_plan), id="text-plan")
+        yield Summary(self.json_plan, id="summary")
         yield Footer()
 
     def action_toggle_dark(self) -> None:
@@ -213,3 +221,13 @@ class TfPlanViewerApp(App):
         self.theme = (
             "textual-dark" if self.theme == "textual-light" else "textual-light"
         )
+
+    def action_toggle_view(self) -> None:
+        """An action to toggle viewing mode."""
+        self.tree_view = not self.tree_view
+        if self.tree_view:
+          self.remove_class("textview")
+          self.set_focus(self.get_widget_by_id("tree-plan"))
+        else:
+          self.add_class("textview")
+          self.set_focus(self.get_widget_by_id("text-plan"))

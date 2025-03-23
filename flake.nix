@@ -1,6 +1,8 @@
 {
   inputs.nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
+  inputs.flake-parts.url = "github:hercules-ci/flake-parts";
+
   inputs.pyproject-nix = {
     url = "github:pyproject-nix/pyproject.nix";
     inputs.nixpkgs.follows = "nixpkgs";
@@ -25,12 +27,9 @@
     uv2nix,
     pyproject-nix,
     pyproject-build-systems,
+    flake-parts,
     ...
-  }: let
-    system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
-    inherit (nixpkgs) lib;
-
+  } @ inputs: let
     # Load a uv workspace from a workspace root.
     # Uv2nix treats all uv projects as workspace projects.
     workspace = uv2nix.lib.workspace.loadWorkspace {workspaceRoot = ./.;};
@@ -59,27 +58,35 @@
       # It's using https://pyproject-nix.github.io/pyproject.nix/build.html
     };
 
-    # Use Python 3.12 from nixpkgs
-    python = pkgs.python312;
+  in flake-parts.lib.mkFlake {inherit inputs;} {
+    systems = [
+      "aarch64-linux"
+      "x86_64-linux"
+    ];
 
-    # Construct package set
-    pythonSet =
-      # Use base package set from pyproject.nix builders
-      (pkgs.callPackage pyproject-nix.build.packages {
-        inherit python;
-      })
-      .overrideScope
-      (
-        lib.composeManyExtensions [
-          pyproject-build-systems.overlays.default
-          overlay
-          pyprojectOverrides
-        ]
-      );
-  in {
-    packages.${system} = {
-      trowel = pythonSet.mkVirtualEnv "trowel" workspace.deps.default;
-      default = self.packages.${system}.trowel;
+    perSystem = { config, pkgs, lib, system, ... }: let
+      # Use Python 3.12 from nixpkgs
+      python = pkgs.python312;
+
+      # Construct package set
+      pythonSet =
+        # Use base package set from pyproject.nix builders
+        (pkgs.callPackage pyproject-nix.build.packages {
+          inherit python;
+        })
+        .overrideScope
+        (
+          lib.composeManyExtensions [
+            pyproject-build-systems.overlays.default
+            overlay
+            pyprojectOverrides
+          ]
+        );
+    in {
+      packages = {
+        trowel = pythonSet.mkVirtualEnv "trowel" workspace.deps.default;
+        default = self.packages.${system}.trowel;
+      };
     };
   };
 }

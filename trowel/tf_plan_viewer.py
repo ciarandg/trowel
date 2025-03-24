@@ -80,7 +80,7 @@ class Parser:
         before = self._field_before(resource, field_name)
         before_text = "(sensitive value)" if before["sensitive"] else json.dumps(before["value"])
         after = self._field_after(resource, field_name)
-        after_text = "(known after apply)" if after["known_after_apply"] else json.dumps(after["value"])
+        after_text = Text("(known after apply)", style="red italic").markup if after["known_after_apply"] else json.dumps(after["value"])
         return [before_text, after_text]
 
     def _resource_verb(self, resource):

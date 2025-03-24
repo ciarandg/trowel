@@ -2,6 +2,7 @@ from enum import Enum
 import json
 from rich.text import Text
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.widgets import Footer, Header, Label, Rule, Static, TextArea, Tree
 
 
@@ -139,10 +140,10 @@ class Parser:
 
 class TfPlanTree(Tree):
     BINDINGS = [
-        ("j", "cursor_down", "Cursor Down"),
-        ("k", "cursor_up", "Cursor Up"),
-        ("l", "select_cursor", "Select"),
-        ("h", "cursor_parent", "Cursor to parent"),
+        Binding("j", "cursor_down", "Cursor Down", show=False),
+        Binding("k", "cursor_up", "Cursor Up", show=False),
+        Binding("l", "select_cursor", "Select", show=False),
+        Binding("h", "cursor_parent", "Cursor to parent", show=False),
     ]
 
     show_root = False

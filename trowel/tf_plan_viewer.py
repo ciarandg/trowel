@@ -92,7 +92,7 @@ class Parser:
             return Verbs.UPDATE
         elif actions == ["delete"]:
             return Verbs.DESTROY
-        elif actions == ["delete", "create"]:
+        elif sorted(actions) == ["create", "delete"]:
             return Verbs.REPLACE
         elif actions == ["read"]:
             return Verbs.READ

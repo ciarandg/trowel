@@ -210,7 +210,6 @@ class TfPlanViewerApp(App):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
-        yield Header()
         if not self.hide_experimental_warning:
             yield ExperimentalWarning()
         yield TfPlanTree("Plan Output", self.json_plan, id="tree-plan")

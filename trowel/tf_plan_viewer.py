@@ -186,11 +186,11 @@ class Summary(Label):
         text = Text()
         for index, (verb, count) in enumerate(sorted_counts):
             text.append(
-                f"{verb.value['icon']}{count}",
+                f"{verb.name.lower()} {count}",
                 style=f"bold {verb.value['color']}"
             )
             if index < len(counts) - 1:
-                text.append(" ")
+                text.append(" | ")
         super().__init__(text.markup, id=id)
 
 

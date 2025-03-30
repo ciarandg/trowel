@@ -21,9 +21,28 @@ pub struct TrowelDiffEntryBeforeAfter {
     pub after: TrowelDiffEntryAfter,
 }
 
-pub struct TrowelDiffEntryBefore {
-    pub is_sensitive: bool,
-    pub value: Option<Value>,
+impl TrowelDiffEntryBeforeAfter {
+    pub fn fmt(&self) -> String {
+        let before = match &self.before {
+            TrowelDiffEntryBefore::Known(value) => value.to_string(),
+            TrowelDiffEntryBefore::Sensitive(_) => "(sensitive value)".to_string(),
+            TrowelDiffEntryBefore::Unknown => "(unknown value)".to_string(),
+        };
+
+        let after = match &self.after {
+            TrowelDiffEntryAfter::Known(value) => value.to_string(),
+            TrowelDiffEntryAfter::Sensitive(_) => "(sensitive value)".to_string(),
+            TrowelDiffEntryAfter::Unknown => "(unknown value)".to_string(),
+        };
+
+        format!("{} -> {}", before, after)
+    }
+}
+
+enum TrowelDiffEntryBefore {
+    Known(Value),
+    Sensitive(Value),
+    Unknown,
 }
 
 type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
@@ -42,14 +61,8 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> TrowelDiff {
                 values.insert(
                     n,
                     TrowelDiffEntryBeforeAfter {
-                        before: TrowelDiffEntryBefore {
-                          is_sensitive: false,
-                          value: Some(json!("0.0.0.0"))
-                        },
-                        after: TrowelDiffEntryAfter {
-                          is_sensitive: false,
-                          value: Some(json!("0.0.0.0"))
-                        },
+                        before: TrowelDiffEntryBefore::Known(json!("0.0.0.0")),
+                        after: TrowelDiffEntryBefore::Known(json!("1.1.1.1")),
                     }
                 );
             }
@@ -108,12 +121,7 @@ pub fn tree_items_from_diff(diff: &TrowelDiff) -> Vec<TreeItem<String>> {
         for (k, v) in &e.values {
             values.push(TreeItem::new_leaf(
                 format!("{} {}", e.resource_path, k),
-                format!(
-                    "{} {} -> {}",
-                    k,
-                    v.before.value.as_ref().expect(""), // TODO error handling
-                    v.after.value.as_ref().expect("") // TODO error handling
-                ),
+                format!("{} {}", k, v.fmt()),
             ))
         }
 

@@ -1,21 +1,37 @@
-use std::{error::Error, io};
+use std::{error::Error, io, fs, env};
 
+use model::diff::{diff_from_tf_plan, tree_items_from_diff};
 use ratatui::{
     backend::Backend, crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind}, layout::Position, Terminal
 };
 
 mod app;
 mod ui;
+mod model;
 
 use crate::{
     app::App,
     ui::ui,
+    model::tf_plan::TfPlan,
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} <path_to_json_file>", args[0]);
+        std::process::exit(1);
+    }
+
+    let file_path = &args[1];
+    let contents = fs::read_to_string(file_path)
+        .expect("Should have been able to read the file");
+    let parsed: TfPlan = serde_json::from_str(&contents)?;
+    let diff = diff_from_tf_plan(&parsed);
+    let tree_items = tree_items_from_diff(&diff);
+
     color_eyre::install()?;
     let mut terminal = ratatui::init();
-    let mut app = App::new();
+    let mut app = App::new(tree_items);
     run_app(&mut terminal, &mut app)?;
     ratatui::restore();
 

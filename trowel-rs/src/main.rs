@@ -1,6 +1,6 @@
 use std::{error::Error, io, fs, env};
 
-use model::diff::{diff_from_tf_plan, tree_items_from_diff};
+use model::trowel_diff::{diff_from_tf_plan, tree_items_from_diff};
 use ratatui::{
     backend::Backend, crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind}, layout::Position, Terminal
 };

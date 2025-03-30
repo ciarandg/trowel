@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use color_eyre::eyre::Result;
 use ratatui::{
     style::{Modifier, Style}, text::{Line, Span}
 };
@@ -9,28 +8,28 @@ use tui_tree_widget::TreeItem;
 
 use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::{resource_to_verb, verb_to_color, verb_to_past_tense, Verb}};
 
-pub type Diff = Vec<DiffEntry>;
+pub type TrowelDiff = Vec<TrowelDiffEntry>;
 
-pub struct DiffEntry {
+pub struct TrowelDiffEntry {
     pub verb: Verb,
     pub resource_path: String,
-    pub values: HashMap<String, DiffEntryBeforeAfter>,
+    pub values: HashMap<String, TrowelDiffEntryBeforeAfter>,
 }
 
-pub struct DiffEntryBeforeAfter {
-    pub before: DiffEntryBefore,
-    pub after: DiffEntryAfter,
+pub struct TrowelDiffEntryBeforeAfter {
+    pub before: TrowelDiffEntryBefore,
+    pub after: TrowelDiffEntryAfter,
 }
 
-pub struct DiffEntryBefore {
+pub struct TrowelDiffEntryBefore {
     pub is_sensitive: bool,
     pub value: Option<Value>,
 }
 
-type DiffEntryAfter = DiffEntryBefore;
+type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
 
-pub fn diff_from_tf_plan(plan: &TfPlan) -> Diff {
-    let mut out = Diff::new();
+pub fn diff_from_tf_plan(plan: &TfPlan) -> TrowelDiff {
+    let mut out = TrowelDiff::new();
 
     for rc in &plan.resource_changes {
         let verb: Verb = resource_to_verb(rc).expect("Could not get verb for resource");
@@ -42,12 +41,12 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> Diff {
             for n in resource_names {
                 values.insert(
                     n,
-                    DiffEntryBeforeAfter {
-                        before: DiffEntryBefore {
+                    TrowelDiffEntryBeforeAfter {
+                        before: TrowelDiffEntryBefore {
                           is_sensitive: false,
                           value: Some(json!("0.0.0.0"))
                         },
-                        after: DiffEntryAfter {
+                        after: TrowelDiffEntryAfter {
                           is_sensitive: false,
                           value: Some(json!("0.0.0.0"))
                         },
@@ -55,7 +54,7 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> Diff {
                 );
             }
 
-            out.push(DiffEntry {
+            out.push(TrowelDiffEntry {
                 verb,
                 resource_path: rc.address.clone(),
                 values,
@@ -100,7 +99,7 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Vec<String> {
     v
 }
 
-pub fn tree_items_from_diff(diff: &Diff) -> Vec<TreeItem<String>> {
+pub fn tree_items_from_diff(diff: &TrowelDiff) -> Vec<TreeItem<String>> {
     let mut out = vec![];
 
     for e in diff {

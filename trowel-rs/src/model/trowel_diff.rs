@@ -17,8 +17,8 @@ pub struct TrowelDiffEntry {
 }
 
 pub struct TrowelDiffEntryBeforeAfter {
-    pub before: TrowelDiffEntryBefore,
-    pub after: TrowelDiffEntryAfter,
+    before: TrowelDiffEntryBefore,
+    after: TrowelDiffEntryAfter,
 }
 
 impl TrowelDiffEntryBeforeAfter {
@@ -59,10 +59,10 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> TrowelDiff {
 
             for n in resource_names {
                 values.insert(
-                    n,
+                    n.clone(),
                     TrowelDiffEntryBeforeAfter {
-                        before: TrowelDiffEntryBefore::Known(json!("0.0.0.0")),
-                        after: TrowelDiffEntryBefore::Known(json!("1.1.1.1")),
+                        before: get_before_value(&n, &rc.change),
+                        after: get_after_value(&n, &rc.change),
                     }
                 );
             }
@@ -76,6 +76,47 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> TrowelDiff {
     }
 
     out
+}
+
+fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> TrowelDiffEntryBefore {
+    let before: Option<TrowelDiffEntryBefore> = change.before
+        .as_ref()
+        .and_then(|map| map.get(resource_name).cloned())
+        .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
+    let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()
+        .unwrap()
+        .and_then(|map| map.get(resource_name).cloned())
+        .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
+
+    match before {
+        Some(v) => v,
+        None => match before_sensitive {
+            Some(v) => v,
+            None => TrowelDiffEntryBefore::Unknown
+        }
+    }
+}
+
+fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> TrowelDiffEntryAfter {
+    let after: Option<TrowelDiffEntryAfter> = change.after
+        .as_ref()
+        .and_then(|map| map.get(resource_name).cloned())
+        .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
+    let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()
+        .unwrap()
+        .and_then(|map| map.get(resource_name).cloned())
+        .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
+    let after_unknown: Option<TrowelDiffEntryAfter> = change.after_unknown
+        .get(resource_name)
+        .map(|_| TrowelDiffEntryAfter::Unknown);
+
+    match after {
+        Some(v) => v,
+        None => match after_sensitive {
+            Some(v) => v,
+            None => TrowelDiffEntryAfter::Unknown
+        }
+    }
 }
 
 fn all_resource_names(change: &TfPlanResourceChangeChange) -> Vec<String> {

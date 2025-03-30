@@ -80,6 +80,39 @@ pub struct TfPlanResourceChangeChange {
     pub replace_paths: Option<Vec<Vec<String>>>,
 }
 
+type SensitiveValues = Option<HashMap<String, Value>>;
+
+impl TfPlanResourceChangeChange {
+    pub fn process_before_sensitive(&self) -> Result<SensitiveValues, &str> {
+        process_sensitive_values(&self.before_sensitive)
+    }
+
+    pub fn process_after_sensitive(&self) -> Result<SensitiveValues, &str> {
+        process_sensitive_values(&self.after_sensitive)
+    }
+}
+
+// TODO make a proper deserializer for this
+fn process_sensitive_values(v: &Value) -> Result<SensitiveValues, &str> {
+    match v {
+        Value::Bool(b) => {
+            if *b {
+                Err("sensitive values can be boolean, but should always be false if so")
+            } else {
+                Ok(None)
+            }
+        },
+        Value::Object(map) => {
+            let mut result = HashMap::new();
+            for (key, value) in map.iter() {
+                result.insert(key.clone(), value.clone());
+            }
+            Ok(Some(result))
+        },
+        _ => Err("sensitive values should either be a false boolean or a dictionary"),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPriorState {

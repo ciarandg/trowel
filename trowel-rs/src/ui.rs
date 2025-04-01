@@ -1,3 +1,6 @@
+use std::io;
+use std::result::Result;
+
 use ratatui::{
     layout::{Constraint, Direction, Layout}, style::{Color, Modifier, Style, Stylize}, text::{Line, Span}, widgets::{Block, Scrollbar, ScrollbarOrientation}, Frame
 };
@@ -5,7 +8,7 @@ use tui_tree_widget::Tree;
 
 use crate::app::App;
 
-pub fn ui(frame: &mut Frame, app: &mut App) {
+pub fn ui(frame: &mut Frame, app: &mut App) -> Result<(), io::Error> {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -13,8 +16,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         ])
         .split(frame.area());
 
-        let tree = Tree::new(&app.items)
-            .expect("all item identifiers are unique")
+        let tree = Tree::new(&app.items)?
             .block(
                 Block::bordered()
                     .title(Span::styled(" Trowel ", Style::default().fg(Color::Blue)).add_modifier(Modifier::BOLD))
@@ -42,4 +44,5 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
             );
 
     frame.render_stateful_widget(tree, chunks[0], &mut app.state);
+    Ok(())
 }

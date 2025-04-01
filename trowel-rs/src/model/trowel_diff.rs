@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::result::Result;
+use std::io;
 
 use ratatui::{
     style::{Modifier, Style}, text::{Line, Span}
@@ -47,22 +49,22 @@ enum TrowelDiffEntryBefore {
 
 type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
 
-pub fn diff_from_tf_plan(plan: &TfPlan) -> TrowelDiff {
+pub fn diff_from_tf_plan(plan: &TfPlan) -> Result<TrowelDiff, io::Error> {
     let mut out = TrowelDiff::new();
 
     for rc in &plan.resource_changes {
-        let verb: Verb = resource_to_verb(rc).expect("Could not get verb for resource");
+        let verb: Verb = resource_to_verb(rc)?;
 
         if verb != Verb::IGNORE {
             let mut values = HashMap::new();
-            let resource_names = all_resource_names(&rc.change);
+            let resource_names = all_resource_names(&rc.change)?;
 
             for n in resource_names {
                 values.insert(
                     n.clone(),
                     TrowelDiffEntryBeforeAfter {
-                        before: get_before_value(&n, &rc.change),
-                        after: get_after_value(&n, &rc.change),
+                        before: get_before_value(&n, &rc.change)?,
+                        after: get_after_value(&n, &rc.change)?,
                     }
                 );
             }
@@ -75,35 +77,33 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> TrowelDiff {
         }
     }
 
-    out
+    Ok(out)
 }
 
-fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> TrowelDiffEntryBefore {
+fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryBefore, io::Error> {
     let before: Option<TrowelDiffEntryBefore> = change.before
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
-    let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()
-        .unwrap()
+    let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
 
     match before {
-        Some(v) => v,
+        Some(v) => Ok(v),
         None => match before_sensitive {
-            Some(v) => v,
-            None => TrowelDiffEntryBefore::Unknown
+            Some(v) => Ok(v),
+            None => Ok(TrowelDiffEntryBefore::Unknown)
         }
     }
 }
 
-fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> TrowelDiffEntryAfter {
+fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryAfter, io::Error> {
     let after: Option<TrowelDiffEntryAfter> = change.after
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
-    let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()
-        .unwrap()
+    let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
     let after_unknown: Option<TrowelDiffEntryAfter> = change.after_unknown
@@ -111,15 +111,15 @@ fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) 
         .map(|_| TrowelDiffEntryAfter::Unknown);
 
     match after {
-        Some(v) => v,
+        Some(a) => Ok(a),
         None => match after_sensitive {
-            Some(v) => v,
-            None => TrowelDiffEntryAfter::Unknown
+            Some(b) => Ok(b),
+            None => Ok(TrowelDiffEntryAfter::Unknown)
         }
     }
 }
 
-fn all_resource_names(change: &TfPlanResourceChangeChange) -> Vec<String> {
+fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>, io::Error> {
     let mut names: HashSet<String> = HashSet::new();
 
     if let Some(map) = change.before.as_ref() {
@@ -135,13 +135,13 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Vec<String> {
     for (k, _) in &change.after_unknown {
         names.insert(k.to_string());
     }
-    let before_sensitive = &change.process_before_sensitive().unwrap();
+    let before_sensitive = &change.process_before_sensitive()?;
     if let Some(map) = before_sensitive {
         for (k, _) in map {
             names.insert(k.to_string());
         }
     }
-    let after_sensitive = &change.process_after_sensitive().unwrap();
+    let after_sensitive = &change.process_after_sensitive()?;
     if let Some(map) = after_sensitive {
         for (k, _) in map {
             names.insert(k.to_string());
@@ -150,10 +150,10 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Vec<String> {
 
     let mut v: Vec<String> = names.into_iter().collect();
     v.sort();
-    v
+    Ok(v)
 }
 
-pub fn tree_items_from_diff(diff: &TrowelDiff) -> Vec<TreeItem<String>> {
+pub fn tree_items_from_diff(diff: &TrowelDiff) -> Result<Vec<TreeItem<String>>, io::Error> {
     let mut out = vec![];
 
     for e in diff {
@@ -166,8 +166,7 @@ pub fn tree_items_from_diff(diff: &TrowelDiff) -> Vec<TreeItem<String>> {
             ))
         }
 
-        out.push(
-            TreeItem::new(
+        let item = TreeItem::new(
                 e.resource_path.clone(),
                 Line::from(vec![
                     Span::styled(
@@ -177,13 +176,10 @@ pub fn tree_items_from_diff(diff: &TrowelDiff) -> Vec<TreeItem<String>> {
                     Span::from(format!(" will be {}", verb_to_past_tense(&e.verb))),
                 ]),
                 values,
-                // vec![
-                //     TreeItem::new_leaf(format!("{}b", e.resource_path), "value \"0.0.0.0\" -> \"0.0.0.0\""),
-                //     TreeItem::new_leaf(format!("{}c", e.resource_path), "18 unchanged"),
-                // ],
-            ).expect("all item identifiers are unique"),
-        );
+            )?;
+
+        out.push(item);
     }
 
-    out
+    Ok(out)
 }

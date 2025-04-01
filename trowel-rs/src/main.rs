@@ -23,11 +23,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let file_path = &args[1];
-    let contents = fs::read_to_string(file_path)
-        .expect("Should have been able to read the file");
+    let contents = fs::read_to_string(file_path).unwrap();
     let parsed: TfPlan = serde_json::from_str(&contents)?;
-    let diff = diff_from_tf_plan(&parsed);
-    let tree_items = tree_items_from_diff(&diff);
+    let diff = diff_from_tf_plan(&parsed).unwrap();
+    let tree_items = tree_items_from_diff(&diff).unwrap();
 
     color_eyre::install()?;
     let mut terminal = ratatui::init();
@@ -40,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
     loop {
-        terminal.draw(|f| ui(f, app))?;
+        terminal.draw(|f| ui(f, app).unwrap())?;
 
         match event::read()? {
             Event::Key(key) if !matches!(key.kind, KeyEventKind::Press) => false,

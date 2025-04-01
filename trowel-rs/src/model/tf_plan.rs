@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -83,21 +84,21 @@ pub struct TfPlanResourceChangeChange {
 type SensitiveValues = Option<HashMap<String, Value>>;
 
 impl TfPlanResourceChangeChange {
-    pub fn process_before_sensitive(&self) -> Result<SensitiveValues, &str> {
+    pub fn process_before_sensitive(&self) -> Result<SensitiveValues, io::Error> {
         process_sensitive_values(&self.before_sensitive)
     }
 
-    pub fn process_after_sensitive(&self) -> Result<SensitiveValues, &str> {
+    pub fn process_after_sensitive(&self) -> Result<SensitiveValues, io::Error> {
         process_sensitive_values(&self.after_sensitive)
     }
 }
 
 // TODO make a proper deserializer for this
-fn process_sensitive_values(v: &Value) -> Result<SensitiveValues, &str> {
+fn process_sensitive_values(v: &Value) -> Result<SensitiveValues, io::Error> {
     match v {
         Value::Bool(b) => {
             if *b {
-                Err("sensitive values can be boolean, but should always be false if so")
+                Err(io::Error::new(io::ErrorKind::InvalidInput, "Sensitive values can be boolean, but should always be false if so"))
             } else {
                 Ok(None)
             }
@@ -109,7 +110,7 @@ fn process_sensitive_values(v: &Value) -> Result<SensitiveValues, &str> {
             }
             Ok(Some(result))
         },
-        _ => Err("sensitive values should either be a false boolean or a dictionary"),
+        _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "Sensitive values should either be a false boolean or a dictionary")),
     }
 }
 

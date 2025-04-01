@@ -1,4 +1,5 @@
 use std::result::Result;
+use std::io;
 use ratatui::style::Color;
 
 use super::tf_plan::TfPlanResourceChange;
@@ -13,7 +14,7 @@ pub enum Verb {
     IGNORE,
 }
 
-pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, &str> {
+pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, io::Error> {
     let mut sorted = actions.change.actions.clone();
     sorted.sort();
     if sorted == vec!["no-op"] {
@@ -29,7 +30,10 @@ pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, &str> {
     } else if sorted == vec!["read"] {
         Ok(Verb::READ)
     } else {
-        Err("Invalid actions array for resource")
+        Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("Verb not found for actions: {:?}", sorted)
+        ))
     }
 }
 

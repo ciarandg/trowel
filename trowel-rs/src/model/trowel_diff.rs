@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use ratatui::{
     style::{Modifier, Style}, text::{Line, Span}
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 use tui_tree_widget::TreeItem;
 
 use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::{resource_to_verb, verb_to_color, verb_to_past_tense, Verb}};

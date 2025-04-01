@@ -1,4 +1,4 @@
-use color_eyre::eyre::Result;
+use std::result::Result;
 use ratatui::style::Color;
 
 use super::tf_plan::TfPlanResourceChange;

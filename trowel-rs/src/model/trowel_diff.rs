@@ -27,13 +27,13 @@ impl TrowelDiffEntryBeforeAfter {
     pub fn fmt(&self) -> String {
         let before = match &self.before {
             TrowelDiffEntryBefore::Known(value) => value.to_string(),
-            TrowelDiffEntryBefore::Sensitive(_) => "(sensitive value)".to_string(),
+            TrowelDiffEntryBefore::Sensitive => "(sensitive value)".to_string(),
             TrowelDiffEntryBefore::Unknown => "(unknown value)".to_string(),
         };
 
         let after = match &self.after {
             TrowelDiffEntryAfter::Known(value) => value.to_string(),
-            TrowelDiffEntryAfter::Sensitive(_) => "(sensitive value)".to_string(),
+            TrowelDiffEntryAfter::Sensitive => "(sensitive value)".to_string(),
             TrowelDiffEntryAfter::Unknown => "(unknown value)".to_string(),
         };
 
@@ -43,7 +43,7 @@ impl TrowelDiffEntryBeforeAfter {
 
 enum TrowelDiffEntryBefore {
     Known(Value),
-    Sensitive(Value),
+    Sensitive,
     Unknown,
 }
 
@@ -87,7 +87,7 @@ fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange)
         .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
     let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
-        .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
+        .map(|_| TrowelDiffEntryBefore::Sensitive);
 
     match before {
         Some(v) => Ok(v),
@@ -105,7 +105,7 @@ fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) 
         .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
     let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
-        .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
+        .map(|_| TrowelDiffEntryAfter::Sensitive);
     let after_unknown: Option<TrowelDiffEntryAfter> = change.after_unknown
         .get(resource_name)
         .map(|_| TrowelDiffEntryAfter::Unknown);
@@ -114,7 +114,10 @@ fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) 
         Some(a) => Ok(a),
         None => match after_sensitive {
             Some(b) => Ok(b),
-            None => Ok(TrowelDiffEntryAfter::Unknown)
+            None => match after_unknown {
+                Some(c) => Ok(c),
+                None => Ok(TrowelDiffEntryAfter::Unknown),
+            }
         }
     }
 }

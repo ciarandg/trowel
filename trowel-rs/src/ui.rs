@@ -1,5 +1,4 @@
 use std::io;
-use std::result::Result;
 
 use ratatui::{
     layout::{Constraint, Direction, Layout}, style::{Color, Modifier, Style, Stylize}, text::{Line, Span}, widgets::{Block, Scrollbar, ScrollbarOrientation}, Frame

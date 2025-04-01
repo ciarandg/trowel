@@ -1,4 +1,3 @@
-use std::result::Result;
 use std::io;
 use ratatui::style::Color;
 

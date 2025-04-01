@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::result::Result;
 use std::io;
 
 use ratatui::{

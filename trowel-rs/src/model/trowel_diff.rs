@@ -29,12 +29,14 @@ impl TrowelDiffEntryBeforeAfter {
             TrowelDiffEntryBefore::Known(value) => value.to_string(),
             TrowelDiffEntryBefore::Sensitive => "(sensitive value)".to_string(),
             TrowelDiffEntryBefore::Unknown => "(unknown value)".to_string(),
+            TrowelDiffEntryBefore::Absent => "(absent value)".to_string(),
         };
 
         let after = match &self.after {
             TrowelDiffEntryAfter::Known(value) => value.to_string(),
             TrowelDiffEntryAfter::Sensitive => "(sensitive value)".to_string(),
             TrowelDiffEntryAfter::Unknown => "(unknown value)".to_string(),
+            TrowelDiffEntryAfter::Absent => "(absent value)".to_string(),
         };
 
         format!("{} -> {}", before, after)
@@ -45,6 +47,7 @@ enum TrowelDiffEntryBefore {
     Known(Value),
     Sensitive,
     Unknown,
+    Absent,
 }
 
 type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
@@ -93,7 +96,7 @@ fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange)
         Some(v) => Ok(v),
         None => match before_sensitive {
             Some(v) => Ok(v),
-            None => Ok(TrowelDiffEntryBefore::Unknown)
+            None => Ok(TrowelDiffEntryBefore::Absent)
         }
     }
 }
@@ -116,7 +119,7 @@ fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) 
             Some(b) => Ok(b),
             None => match after_unknown {
                 Some(c) => Ok(c),
-                None => Ok(TrowelDiffEntryAfter::Unknown),
+                None => Ok(TrowelDiffEntryAfter::Absent),
             }
         }
     }

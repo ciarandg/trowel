@@ -98,38 +98,38 @@ pub fn diff_from_tf_plan(plan: &TfPlan) -> Result<TrowelDiff, io::Error> {
 }
 
 fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryBefore, io::Error> {
+    let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
+        .and_then(|map| map.get(resource_name).cloned())
+        .map(|_| TrowelDiffEntryBefore::Sensitive);
     let before: Option<TrowelDiffEntryBefore> = change.before
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
-    let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
-        .and_then(|map| map.get(resource_name).cloned())
-        .map(|_| TrowelDiffEntryBefore::Sensitive);
 
-    match before {
-        Some(v) => Ok(v),
-        None => match before_sensitive {
-            Some(v) => Ok(v),
+    match before_sensitive {
+        Some(a) => Ok(a),
+        None => match before {
+            Some(b) => Ok(b),
             None => Ok(TrowelDiffEntryBefore::Absent)
         }
     }
 }
 
 fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryAfter, io::Error> {
+    let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()?
+        .and_then(|map| map.get(resource_name).cloned())
+        .map(|_| TrowelDiffEntryAfter::Sensitive);
     let after: Option<TrowelDiffEntryAfter> = change.after
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
-    let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()?
-        .and_then(|map| map.get(resource_name).cloned())
-        .map(|_| TrowelDiffEntryAfter::Sensitive);
     let after_unknown: Option<TrowelDiffEntryAfter> = change.after_unknown
         .get(resource_name)
         .map(|_| TrowelDiffEntryAfter::Unknown);
 
-    match after {
+    match after_sensitive {
         Some(a) => Ok(a),
-        None => match after_sensitive {
+        None => match after {
             Some(b) => Ok(b),
             None => match after_unknown {
                 Some(c) => Ok(c),

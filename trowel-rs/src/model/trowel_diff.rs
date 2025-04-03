@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
 
+use ratatui::style::Color;
 use ratatui::{
     style::{Modifier, Style}, text::{Line, Span}
 };
@@ -23,22 +24,36 @@ pub struct TrowelDiffEntryBeforeAfter {
 }
 
 impl TrowelDiffEntryBeforeAfter {
-    pub fn fmt(&self) -> String {
-        let before = match &self.before {
+    pub fn fmt(&self) -> Vec<Span<'_>> {
+        let before = Span::styled(
+            Self::plaintext(&self.before),
+            Self::style(&self.before)
+        );
+
+        let after = Span::styled(
+            Self::plaintext(&self.after),
+            Self::style(&self.after)
+        );
+
+        vec![before, Span::from(" -> "), after]
+    }
+
+    fn plaintext(v: &TrowelDiffEntryBefore) -> String {
+        match v {
             TrowelDiffEntryBefore::Known(value) => value.to_string(),
             TrowelDiffEntryBefore::Sensitive => "(sensitive value)".to_string(),
             TrowelDiffEntryBefore::Unknown => "(unknown value)".to_string(),
             TrowelDiffEntryBefore::Absent => "(absent value)".to_string(),
-        };
+        }
+    }
 
-        let after = match &self.after {
-            TrowelDiffEntryAfter::Known(value) => value.to_string(),
-            TrowelDiffEntryAfter::Sensitive => "(sensitive value)".to_string(),
-            TrowelDiffEntryAfter::Unknown => "(unknown value)".to_string(),
-            TrowelDiffEntryAfter::Absent => "(absent value)".to_string(),
-        };
-
-        format!("{} -> {}", before, after)
+    fn style(v: &TrowelDiffEntryBefore) -> Style {
+        match v {
+            TrowelDiffEntryBefore::Known(_) => Style::default(),
+            TrowelDiffEntryBefore::Sensitive => Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+            TrowelDiffEntryBefore::Unknown => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            TrowelDiffEntryBefore::Absent => Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD),
+        }
     }
 }
 
@@ -167,7 +182,12 @@ pub fn tree_items_from_diff(diff: &TrowelDiff) -> Result<Vec<TreeItem<String>>, 
         for (k, v) in &e.values {
             values.push(TreeItem::new_leaf(
                 format!("{} {}", e.resource_path, k),
-                format!("{} {}", k, v.fmt()),
+                Line::from(
+                    std::iter::once(Span::from(k))
+                    .chain(std::iter::once(Span::from(" ")))
+                    .chain(v.fmt().into_iter())
+                    .collect::<Vec<_>>(),
+                ),
             ))
         }
 

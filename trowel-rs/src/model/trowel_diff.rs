@@ -12,12 +12,22 @@ use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::{resource_to_ve
 
 pub type TrowelDiff = Vec<TrowelDiffEntry>;
 
+#[derive(Clone)]
 pub struct TrowelDiffEntry {
     pub verb: Verb,
     pub resource_path: String,
     pub values: HashMap<String, TrowelDiffEntryBeforeAfter>,
 }
 
+impl TrowelDiffEntry {
+    pub fn values_sorted(&self) -> Vec<(&String, &TrowelDiffEntryBeforeAfter)> {
+        let mut out: Vec<_> = self.values.iter().collect();
+        out.sort_by_key(|(k, _)| *k);
+        out
+    }
+}
+
+#[derive(Clone)]
 pub struct TrowelDiffEntryBeforeAfter {
     before: TrowelDiffEntryBefore,
     after: TrowelDiffEntryAfter,
@@ -57,6 +67,7 @@ impl TrowelDiffEntryBeforeAfter {
     }
 }
 
+#[derive(Clone)]
 enum TrowelDiffEntryBefore {
     Known(Value),
     Sensitive,
@@ -179,7 +190,7 @@ pub fn tree_items_from_diff(diff: &TrowelDiff) -> Result<Vec<TreeItem<String>>, 
     for e in diff {
         let mut values = Vec::new();
 
-        for (k, v) in &e.values {
+        for (k, v) in e.values_sorted() {
             values.push(TreeItem::new_leaf(
                 format!("{} {}", e.resource_path, k),
                 Line::from(

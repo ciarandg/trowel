@@ -3,7 +3,7 @@ use ratatui::style::Color;
 
 use super::tf_plan::TfPlanResourceChange;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Verb {
     CREATE,
     UPDATE,

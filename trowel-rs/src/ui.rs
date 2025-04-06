@@ -1,7 +1,7 @@
 use std::io;
 
 use ratatui::{
-    layout::{Constraint, Direction, Layout}, style::{Color, Modifier, Style, Stylize}, text::{Line, Span}, widgets::{Block, Scrollbar, ScrollbarOrientation}, Frame
+    layout::{Constraint, Direction, Layout}, style::{Color, Modifier, Style, Stylize}, text::Span, widgets::{Block, Scrollbar, ScrollbarOrientation}, Frame
 };
 use tui_tree_widget::Tree;
 
@@ -20,15 +20,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) -> Result<(), io::Error> {
             .block(
                 Block::bordered()
                     .title(Span::styled(" Trowel ", Style::default().fg(Color::Blue)).add_modifier(Modifier::BOLD))
-                    .title_bottom(Line::from(vec![
-                        Span::styled(" create 0", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                        Span::from(" | "),
-                        Span::styled("destroy 0", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                        Span::from(" | "),
-                        Span::styled("replace 0", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-                        Span::from(" | "),
-                        Span::styled("update 0 ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    ])),
+                    .title_bottom(app.diff.verb_uses_fmt()),
             )
             .experimental_scrollbar(Some(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)

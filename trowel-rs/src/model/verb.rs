@@ -3,16 +3,34 @@ use ratatui::style::Color;
 
 use super::tf_plan::TfPlanResourceChange;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Verb {
-    CREATE,
-    UPDATE,
-    REPLACE,
-    DESTROY,
-    READ,
-    IGNORE,
+    CREATE = 0,
+    UPDATE = 3,
+    REPLACE = 2,
+    DESTROY = 1,
+    READ = 4,
+    IGNORE = 99,
 }
 
+impl Verb {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Verb::CREATE => "CREATE",
+            Verb::UPDATE => "UPDATE",
+            Verb::REPLACE => "REPLACE",
+            Verb::DESTROY => "DESTROY",
+            Verb::READ => "READ",
+            Verb::IGNORE => "IGNORE",
+        }
+    }
+
+    pub fn name_lower(&self) -> String {
+        self.name().to_lowercase()
+    }
+}
+
+// TODO put all functions below inside impl
 pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, io::Error> {
     let mut sorted = actions.change.actions.clone();
     sorted.sort();

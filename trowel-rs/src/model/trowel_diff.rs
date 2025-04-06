@@ -79,6 +79,46 @@ impl TrowelDiff {
 
         Ok(out)
     }
+
+    pub fn verb_uses(&self) -> HashMap<Verb, u8> {
+        let mut out = HashMap::new();
+        for
+         e in &self.0 {
+            let current = *out.get(&e.verb).unwrap_or(&0);
+            out.insert(e.verb.clone(), current + 1);
+        }
+        out
+    }
+
+    pub fn verb_uses_fmt(&self) -> Line {
+        let mut lines = Vec::new();
+
+        let uses = &self.verb_uses();
+        let mut uses: Vec<_> = uses.iter().collect();
+        uses.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        for (i, (verb, use_count)) in uses.iter().enumerate() {
+            if i == 0 {
+                lines.push(Span::from(" "));
+            } else {
+                lines.push(Span::from(" | "));
+            }
+
+            let plaintext = format!("{} {}", verb.name_lower(), use_count);
+            let color = verb_to_color(&verb);
+            lines.push(
+                Span::styled(
+                    plaintext,
+                    Style::default().fg(color).add_modifier(Modifier::BOLD)
+                )
+            );
+
+            if i == uses.iter().count() - 1 {
+                lines.push(Span::from(" "));
+            }
+        }
+        Line::from(lines)
+    }
 }
 
 #[derive(Clone)]

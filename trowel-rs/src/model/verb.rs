@@ -5,23 +5,23 @@ use super::tf_plan::TfPlanResourceChange;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Verb {
-    CREATE = 0,
-    UPDATE = 3,
-    REPLACE = 2,
-    DESTROY = 1,
-    READ = 4,
-    IGNORE = 99,
+    Create = 0,
+    Update = 3,
+    Replace = 2,
+    Destroy = 1,
+    Read = 4,
+    Ignore = 99,
 }
 
 impl Verb {
     pub fn name(&self) -> &'static str {
         match self {
-            Verb::CREATE => "CREATE",
-            Verb::UPDATE => "UPDATE",
-            Verb::REPLACE => "REPLACE",
-            Verb::DESTROY => "DESTROY",
-            Verb::READ => "READ",
-            Verb::IGNORE => "IGNORE",
+            Verb::Create => "Create",
+            Verb::Update => "Update",
+            Verb::Replace => "Replace",
+            Verb::Destroy => "Destroy",
+            Verb::Read => "Read",
+            Verb::Ignore => "Ignore",
         }
     }
 
@@ -35,17 +35,17 @@ pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, io::Erro
     let mut sorted = actions.change.actions.clone();
     sorted.sort();
     if sorted == vec!["no-op"] {
-        Ok(Verb::IGNORE)
+        Ok(Verb::Ignore)
     } else if sorted == vec!["create"] {
-        Ok(Verb::CREATE)
+        Ok(Verb::Create)
     } else if sorted == vec!["update"] {
-        Ok(Verb::UPDATE)
+        Ok(Verb::Update)
     } else if sorted == vec!["delete"] {
-        Ok(Verb::DESTROY)
+        Ok(Verb::Destroy)
     } else if sorted == vec!["create", "delete"] {
-        Ok(Verb::REPLACE)
+        Ok(Verb::Replace)
     } else if sorted == vec!["read"] {
-        Ok(Verb::READ)
+        Ok(Verb::Read)
     } else {
         Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -56,22 +56,22 @@ pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, io::Erro
 
 pub fn verb_to_past_tense(verb: &Verb) -> String {
     match verb {
-        Verb::CREATE => "created",
-        Verb::UPDATE => "updated",
-        Verb::REPLACE => "replaced",
-        Verb::DESTROY => "destroyed",
-        Verb::READ => "read",
-        Verb::IGNORE => "ignored",
+        Verb::Create => "created",
+        Verb::Update => "updated",
+        Verb::Replace => "replaced",
+        Verb::Destroy => "destroyed",
+        Verb::Read => "read",
+        Verb::Ignore => "ignored",
     }.to_string()
 }
 
 pub fn verb_to_color(verb: &Verb) -> Color {
     match verb {
-        Verb::CREATE => Color::Green,
-        Verb::UPDATE => Color::Yellow,
-        Verb::REPLACE => Color::Magenta,
-        Verb::DESTROY => Color::Red,
-        Verb::READ => Color::Cyan,
-        Verb::IGNORE => Color::Gray,
+        Verb::Create => Color::Green,
+        Verb::Update => Color::Yellow,
+        Verb::Replace => Color::Magenta,
+        Verb::Destroy => Color::Red,
+        Verb::Read => Color::Cyan,
+        Verb::Ignore => Color::Gray,
     }
 }

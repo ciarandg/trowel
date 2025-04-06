@@ -92,13 +92,15 @@ fn generate_diff_binary(plan_file: PathBuf) -> Result<TrowelDiff, io::Error> {
         .arg("-json")
         .arg(plan_file)
         .output()?;
-    let stdout = std::str::from_utf8(&output.stdout).unwrap();
-    generate_diff_json(stdout.to_string())
+    match std::str::from_utf8(&output.stdout) {
+        Ok(out) => generate_diff_json(out.to_string()),
+        Err(_) => Err(io::Error::new(io::ErrorKind::InvalidData, "Failed to parse stdout into UTF-8")),
+    }
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
     loop {
-        terminal.draw(|f| ui(f, app).unwrap())?;
+        terminal.draw(|f| ui(f, app))?;
 
         match event::read()? {
             Event::Key(key) if !matches!(key.kind, KeyEventKind::Press) => false,

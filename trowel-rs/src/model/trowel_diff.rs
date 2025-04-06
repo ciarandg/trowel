@@ -19,7 +19,7 @@ impl TrowelDiff {
         for rc in &plan.resource_changes {
             let verb: Verb = resource_to_verb(rc)?;
 
-            if verb != Verb::IGNORE {
+            if verb != Verb::Ignore {
                 let mut values = HashMap::new();
                 let resource_names = all_resource_names(&rc.change)?;
 
@@ -66,7 +66,7 @@ impl TrowelDiff {
                     e.resource_path.clone(),
                     Line::from(vec![
                         Span::styled(
-                            format!("{}", e.resource_path),
+                            e.resource_path.to_string(),
                             Style::default().fg(verb_to_color(&e.verb)).add_modifier(Modifier::BOLD)
                         ),
                         Span::from(format!(" will be {}", verb_to_past_tense(&e.verb))),
@@ -105,7 +105,7 @@ impl TrowelDiff {
             }
 
             let plaintext = format!("{} {}", verb.name_lower(), use_count);
-            let color = verb_to_color(&verb);
+            let color = verb_to_color(verb);
             lines.push(
                 Span::styled(
                     plaintext,
@@ -113,7 +113,7 @@ impl TrowelDiff {
                 )
             );
 
-            if i == uses.iter().count() - 1 {
+            if i == uses.len() - 1 {
                 lines.push(Span::from(" "));
             }
         }
@@ -232,27 +232,27 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>
     let mut names: HashSet<String> = HashSet::new();
 
     if let Some(map) = change.before.as_ref() {
-        for (k, _) in map {
+        for k in map.keys() {
             names.insert(k.to_string());
         }
     }
     if let Some(map) = change.after.as_ref() {
-        for (k, _) in map {
+        for k in map.keys() {
             names.insert(k.to_string());
         }
     }
-    for (k, _) in &change.after_unknown {
+    for k in change.after_unknown.keys() {
         names.insert(k.to_string());
     }
     let before_sensitive = &change.process_before_sensitive()?;
     if let Some(map) = before_sensitive {
-        for (k, _) in map {
+        for k in map.keys() {
             names.insert(k.to_string());
         }
     }
     let after_sensitive = &change.process_after_sensitive()?;
     if let Some(map) = after_sensitive {
-        for (k, _) in map {
+        for k in map.keys() {
             names.insert(k.to_string());
         }
     }

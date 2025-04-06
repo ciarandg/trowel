@@ -1,5 +1,6 @@
-use std::{error::Error, io, fs, env};
+use std::{error::Error, fs, io, path::PathBuf};
 
+use clap::{command, Parser};
 use model::trowel_diff::TrowelDiff;
 use ratatui::{
     backend::Backend, crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind}, layout::Position, Terminal
@@ -15,14 +16,17 @@ use crate::{
     model::tf_plan::TfPlan,
 };
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <path_to_json_file>", args[0]);
-        std::process::exit(1);
-    }
+#[derive(Parser, Debug)]
+#[command(version, about = "A TUI for working with OpenTofu and Terraform", long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    plan_file: PathBuf,
+}
 
-    let file_path = &args[1];
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
+    let file_path = args.plan_file;
     let contents = fs::read_to_string(file_path).unwrap();
     let parsed: TfPlan = serde_json::from_str(&contents)?;
     let diff = TrowelDiff::from_tf_plan(&parsed).unwrap();

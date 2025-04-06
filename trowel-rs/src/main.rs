@@ -24,6 +24,8 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    color_eyre::install()?;
+
     let args = Args::parse();
 
     let file_path = args.plan_file;
@@ -31,7 +33,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let parsed: TfPlan = serde_json::from_str(&contents)?;
     let diff = TrowelDiff::from_tf_plan(&parsed).unwrap();
 
-    color_eyre::install()?;
     let mut terminal = ratatui::init();
     let mut app = App::new(diff);
     run_app(&mut terminal, &mut app)?;

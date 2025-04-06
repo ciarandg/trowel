@@ -1,4 +1,4 @@
-use std::{error::Error, fs, io, path::PathBuf};
+use std::{error::Error, ffi::OsStr, fs, io, path::PathBuf, process::Command};
 
 use clap::{command, Parser};
 use model::trowel_diff::TrowelDiff;
@@ -28,10 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let args = Args::parse();
 
-    let file_path = args.plan_file;
-    let contents = fs::read_to_string(file_path).unwrap();
-    let parsed: TfPlan = serde_json::from_str(&contents)?;
-    let diff = TrowelDiff::from_tf_plan(&parsed).unwrap();
+    let plan_file = args.plan_file;
+    let diff = generate_diff(plan_file)?;
 
     let mut terminal = ratatui::init();
     let mut app = App::new(diff);
@@ -39,6 +37,30 @@ fn main() -> Result<(), Box<dyn Error>> {
     ratatui::restore();
 
     Ok(())
+}
+
+fn generate_diff(plan_file: PathBuf) -> Result<TrowelDiff, io::Error> {
+    let extension = plan_file.as_path().extension().and_then(OsStr::to_str);
+
+    match extension {
+        Some("json") => generate_diff_json(fs::read_to_string(plan_file)?),
+        _ => generate_diff_binary(plan_file), // Assume binary plan if file extension is not '.json'
+    }
+}
+
+fn generate_diff_json(json_data: String) -> Result<TrowelDiff, io::Error> {
+    let parsed: TfPlan = serde_json::from_str(&json_data)?;
+    TrowelDiff::from_tf_plan(&parsed)
+}
+
+fn generate_diff_binary(plan_file: PathBuf) -> Result<TrowelDiff, io::Error> {
+    let output = Command::new("tofu")
+        .arg("show")
+        .arg("-json")
+        .arg(plan_file)
+        .output()?;
+    let stdout = std::str::from_utf8(&output.stdout).unwrap();
+    generate_diff_json(stdout.to_string())
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {

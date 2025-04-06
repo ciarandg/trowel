@@ -5,7 +5,7 @@ use ratatui::{
 };
 use tui_tree_widget::Tree;
 
-use crate::{app::App, model::trowel_diff::tree_items_from_diff};
+use crate::app::App;
 
 pub fn ui(frame: &mut Frame, app: &mut App) -> Result<(), io::Error> {
     let chunks = Layout::default()
@@ -15,7 +15,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) -> Result<(), io::Error> {
         ])
         .split(frame.area());
 
-        let tree_items = tree_items_from_diff(&app.diff)?;
+        let tree_items = app.diff.to_tree_items()?;
         let tree = Tree::new(&tree_items)?
             .block(
                 Block::bordered()

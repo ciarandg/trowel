@@ -10,7 +10,76 @@ use tui_tree_widget::TreeItem;
 
 use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::{resource_to_verb, verb_to_color, verb_to_past_tense, Verb}};
 
-pub type TrowelDiff = Vec<TrowelDiffEntry>;
+pub struct TrowelDiff(Vec<TrowelDiffEntry>);
+
+impl TrowelDiff {
+    pub fn from_tf_plan(plan: &TfPlan) -> Result<TrowelDiff, io::Error> {
+        let mut out = TrowelDiff(Vec::new());
+
+        for rc in &plan.resource_changes {
+            let verb: Verb = resource_to_verb(rc)?;
+
+            if verb != Verb::IGNORE {
+                let mut values = HashMap::new();
+                let resource_names = all_resource_names(&rc.change)?;
+
+                for n in resource_names {
+                    values.insert(
+                        n.clone(),
+                        TrowelDiffEntryBeforeAfter {
+                            before: get_before_value(&n, &rc.change)?,
+                            after: get_after_value(&n, &rc.change)?,
+                        }
+                    );
+                }
+
+                out.0.push(TrowelDiffEntry {
+                    verb,
+                    resource_path: rc.address.clone(),
+                    values,
+              });
+            }
+        }
+
+        Ok(out)
+    }
+
+    pub fn to_tree_items(&self) -> Result<Vec<TreeItem<String>>, io::Error> {
+        let mut out = vec![];
+
+        for e in &self.0 {
+            let mut values = Vec::new();
+
+            for (k, v) in e.values_sorted() {
+                values.push(TreeItem::new_leaf(
+                    format!("{} {}", e.resource_path, k),
+                    Line::from(
+                        std::iter::once(Span::from(k))
+                        .chain(std::iter::once(Span::from(" ")))
+                        .chain(v.fmt().into_iter())
+                        .collect::<Vec<_>>(),
+                    ),
+                ))
+            }
+
+            let item = TreeItem::new(
+                    e.resource_path.clone(),
+                    Line::from(vec![
+                        Span::styled(
+                            format!("{}", e.resource_path),
+                            Style::default().fg(verb_to_color(&e.verb)).add_modifier(Modifier::BOLD)
+                        ),
+                        Span::from(format!(" will be {}", verb_to_past_tense(&e.verb))),
+                    ]),
+                    values,
+                )?;
+
+            out.push(item);
+        }
+
+        Ok(out)
+    }
+}
 
 #[derive(Clone)]
 pub struct TrowelDiffEntry {
@@ -76,37 +145,6 @@ enum TrowelDiffEntryBefore {
 }
 
 type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
-
-pub fn diff_from_tf_plan(plan: &TfPlan) -> Result<TrowelDiff, io::Error> {
-    let mut out = TrowelDiff::new();
-
-    for rc in &plan.resource_changes {
-        let verb: Verb = resource_to_verb(rc)?;
-
-        if verb != Verb::IGNORE {
-            let mut values = HashMap::new();
-            let resource_names = all_resource_names(&rc.change)?;
-
-            for n in resource_names {
-                values.insert(
-                    n.clone(),
-                    TrowelDiffEntryBeforeAfter {
-                        before: get_before_value(&n, &rc.change)?,
-                        after: get_after_value(&n, &rc.change)?,
-                    }
-                );
-            }
-
-            out.push(TrowelDiffEntry {
-                verb,
-                resource_path: rc.address.clone(),
-                values,
-          });
-        }
-    }
-
-    Ok(out)
-}
 
 fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryBefore, io::Error> {
     let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
@@ -182,40 +220,4 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>
     let mut v: Vec<String> = names.into_iter().collect();
     v.sort();
     Ok(v)
-}
-
-pub fn tree_items_from_diff(diff: &TrowelDiff) -> Result<Vec<TreeItem<String>>, io::Error> {
-    let mut out = vec![];
-
-    for e in diff {
-        let mut values = Vec::new();
-
-        for (k, v) in e.values_sorted() {
-            values.push(TreeItem::new_leaf(
-                format!("{} {}", e.resource_path, k),
-                Line::from(
-                    std::iter::once(Span::from(k))
-                    .chain(std::iter::once(Span::from(" ")))
-                    .chain(v.fmt().into_iter())
-                    .collect::<Vec<_>>(),
-                ),
-            ))
-        }
-
-        let item = TreeItem::new(
-                e.resource_path.clone(),
-                Line::from(vec![
-                    Span::styled(
-                        format!("{}", e.resource_path),
-                        Style::default().fg(verb_to_color(&e.verb)).add_modifier(Modifier::BOLD)
-                    ),
-                    Span::from(format!(" will be {}", verb_to_past_tense(&e.verb))),
-                ]),
-                values,
-            )?;
-
-        out.push(item);
-    }
-
-    Ok(out)
 }

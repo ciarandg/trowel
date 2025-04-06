@@ -1,6 +1,6 @@
 use std::{error::Error, io, fs, env};
 
-use model::trowel_diff::{diff_from_tf_plan, tree_items_from_diff};
+use model::trowel_diff::diff_from_tf_plan;
 use ratatui::{
     backend::Backend, crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind}, layout::Position, Terminal
 };
@@ -26,11 +26,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(file_path).unwrap();
     let parsed: TfPlan = serde_json::from_str(&contents)?;
     let diff = diff_from_tf_plan(&parsed).unwrap();
-    let tree_items = tree_items_from_diff(&diff).unwrap();
 
     color_eyre::install()?;
     let mut terminal = ratatui::init();
-    let mut app = App::new(tree_items);
+    let mut app = App::new(diff);
     run_app(&mut terminal, &mut app)?;
     ratatui::restore();
 

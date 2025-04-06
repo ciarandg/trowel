@@ -1,15 +1,17 @@
-use tui_tree_widget::{TreeItem, TreeState};
+use tui_tree_widget::TreeState;
 
-pub struct App<'a> {
+use crate::model::trowel_diff::TrowelDiff;
+
+pub struct App {
     pub state: TreeState<String>,
-    pub items: Vec<TreeItem<'a, String>>,
+    pub diff: TrowelDiff,
 }
 
-impl App<'_> {
-    pub fn new(tree_items: Vec<TreeItem<String>>) -> App {
+impl App {
+    pub fn new(diff: TrowelDiff) -> App {
         App {
             state: TreeState::default(),
-            items: tree_items,
+            diff,
         }
     }
 }

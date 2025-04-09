@@ -5,21 +5,21 @@ use tui_scrollview::ScrollView;
 
 use crate::app::TextViewState;
 
-const SCROLLVIEW_HEIGHT: u16 = 100; // TODO this value should depend on the length of the text
-
 pub struct TrowelTextView;
 
 impl StatefulWidget for TrowelTextView {
     type State = TextViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let width = if buf.area.height < SCROLLVIEW_HEIGHT {
+        let text_plan = &state.plan;
+        let scrollview_height = text_plan.lines().count() as u16 + 2; // TODO figure out why 2 is the correct value
+
+        let width = if buf.area.height < scrollview_height {
             buf.area.width - 1
         } else {
             buf.area.width
         };
-        let mut scroll_view = ScrollView::new(Size::new(width, SCROLLVIEW_HEIGHT));
-        let text_plan = &state.plan;
+        let mut scroll_view = ScrollView::new(Size::new(width, scrollview_height));
         self.render_widgets_into_scrollview(scroll_view.buf_mut(), text_plan);
         scroll_view.render(area, buf, &mut state.scroll_view_state)
     }

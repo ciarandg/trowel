@@ -3,7 +3,7 @@ use ratatui::{
 };
 use tui_tree_widget::Tree;
 
-use crate::{app::TreeViewState, model::trowel_diff::TrowelDiff};
+use crate::{model::trowel_diff::TrowelDiff, state::trowel_tree_view_state::TreeViewState};
 
 pub struct TrowelTreeView {}
 

@@ -2,11 +2,9 @@ use ratatui::{
     layout::{Constraint, Direction, Layout}, Frame
 };
 
-use crate::app::AppState;
-use crate::widget::trowel_view::TrowelView;
+use crate::{state::trowel_state::TrowelState, widget::trowel_view::TrowelView};
 
-pub fn ui(frame: &mut Frame, app: &mut AppState) {
-
+pub fn ui(frame: &mut Frame, app: &mut TrowelState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

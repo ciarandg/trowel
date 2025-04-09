@@ -3,7 +3,7 @@ use ratatui::{
 };
 use tui_scrollview::ScrollView;
 
-use crate::app::TextViewState;
+use crate::state::trowel_text_view_state::TextViewState;
 
 pub struct TrowelTextView;
 

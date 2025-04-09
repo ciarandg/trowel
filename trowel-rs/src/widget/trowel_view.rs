@@ -2,7 +2,7 @@ use ratatui::{
     buffer::Buffer, layout::Rect, widgets::StatefulWidget
 };
 
-use crate::app::AppState;
+use crate::state::trowel_state::TrowelState;
 
 use super::{trowel_text_view::TrowelTextView, trowel_tree_view::TrowelTreeView};
 
@@ -12,7 +12,7 @@ pub struct TrowelView {
 }
 
 impl StatefulWidget for TrowelView {
-    type State = AppState;
+    type State = TrowelState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         match state.active_window {

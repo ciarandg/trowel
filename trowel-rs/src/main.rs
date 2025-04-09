@@ -1,20 +1,20 @@
 use std::{error::Error, ffi::OsStr, fs, io, path::{Path, PathBuf}, process::{Command, Stdio}};
 
-use app::TextViewState;
 use clap::{command, Parser};
 use model::trowel_diff::TrowelDiff;
 use ratatui::{
     backend::Backend, crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind}, layout::Position, Terminal
 };
+use state::{trowel_state::TrowelState, trowel_text_view_state::TextViewState};
 use tempfile::NamedTempFile;
 
 mod app;
+mod state;
 mod ui;
 mod model;
 mod widget;
 
 use crate::{
-    app::AppState,
     ui::ui,
     model::tf_plan::TfPlan,
 };
@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }?;
 
     let mut terminal = ratatui::init();
-    let mut app = AppState::new(diff, text_plan);
+    let mut app = TrowelState::new(diff, text_plan);
     run_app(&mut terminal, &mut app)?;
     ratatui::restore();
 
@@ -122,7 +122,7 @@ fn generate_text_plan(binary_plan: &PathBuf) -> Result<TextPlan, io::Error> {
     }
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut TrowelState) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
 
@@ -165,7 +165,7 @@ fn is_quit_binding(key: &KeyEvent) -> bool {
     }
 }
 
-fn tree_view_binding(app: &mut AppState, key: &KeyEvent) -> bool {
+fn tree_view_binding(app: &mut TrowelState, key: &KeyEvent) -> bool {
     match key.code {
         // Fold and unfold
         KeyCode::Enter => app.tree_view_state.tree_state.toggle_selected(),

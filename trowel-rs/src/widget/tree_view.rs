@@ -3,11 +3,11 @@ use ratatui::{
 };
 use tui_tree_widget::Tree;
 
-use crate::{model::trowel_diff::TrowelDiff, state::trowel_tree_view_state::TreeViewState};
+use crate::{model::trowel_diff::TrowelDiff, state::tree_view_state::TreeViewState};
 
-pub struct TrowelTreeView {}
+pub struct TreeView {}
 
-impl StatefulWidget for TrowelTreeView {
+impl StatefulWidget for TreeView {
     type State = TreeViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -27,9 +27,9 @@ impl StatefulWidget for TrowelTreeView {
     }
 }
 
-impl TrowelTreeView {
+impl TreeView {
     pub fn new() -> Self {
-        TrowelTreeView {}
+        TreeView {}
     }
 
     fn title() -> Span<'static> {

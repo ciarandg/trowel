@@ -5,10 +5,9 @@ use model::trowel_diff::TrowelDiff;
 use ratatui::{
     backend::Backend, crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind}, layout::Position, Terminal
 };
-use state::{trowel_state::TrowelState, trowel_text_view_state::TextViewState};
+use state::{app_state::{ActiveView, AppState}, text_view_state::TextViewState};
 use tempfile::NamedTempFile;
 
-mod app;
 mod state;
 mod ui;
 mod model;
@@ -41,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }?;
 
     let mut terminal = ratatui::init();
-    let mut app = TrowelState::new(diff, text_plan);
+    let mut app = AppState::new(diff, text_plan);
     run_app(&mut terminal, &mut app)?;
     ratatui::restore();
 
@@ -122,7 +121,7 @@ fn generate_text_plan(binary_plan: &PathBuf) -> Result<TextPlan, io::Error> {
     }
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut TrowelState) -> io::Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
 
@@ -130,9 +129,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut TrowelState) -> io:
             Event::Key(key) if !matches!(key.kind, KeyEventKind::Press) => false,
             Event::Key(key) if is_quit_binding(&key) => return Ok(()),
             Event::Key(key) if key.code == KeyCode::Tab => app.toggle_view(),
-            Event::Key(key) => match app.active_window {
-                app::Window::TreeView => tree_view_binding(app, &key),
-                app::Window::TextView => {
+            Event::Key(key) => match app.active_view {
+                ActiveView::TreeView => tree_view_binding(app, &key),
+                ActiveView::TextView => {
                     match app.text_view_state.as_mut() {
                         Some(state) => {
                             text_view_binding(state, &key);
@@ -165,7 +164,7 @@ fn is_quit_binding(key: &KeyEvent) -> bool {
     }
 }
 
-fn tree_view_binding(app: &mut TrowelState, key: &KeyEvent) -> bool {
+fn tree_view_binding(app: &mut AppState, key: &KeyEvent) -> bool {
     match key.code {
         // Fold and unfold
         KeyCode::Enter => app.tree_view_state.tree_state.toggle_selected(),

@@ -3,11 +3,11 @@ use ratatui::{
 };
 use tui_scrollview::ScrollView;
 
-use crate::state::trowel_text_view_state::TextViewState;
+use crate::state::text_view_state::TextViewState;
 
-pub struct TrowelTextView;
+pub struct TextView;
 
-impl StatefulWidget for TrowelTextView {
+impl StatefulWidget for TextView {
     type State = TextViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -27,9 +27,9 @@ impl StatefulWidget for TrowelTextView {
     }
 }
 
-impl TrowelTextView {
+impl TextView {
     pub fn new() -> Self {
-        TrowelTextView {}
+        TextView {}
     }
 
     fn title() -> Span<'static> {

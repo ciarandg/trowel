@@ -2,24 +2,24 @@ use ratatui::{
     buffer::Buffer, layout::Rect, widgets::StatefulWidget
 };
 
-use crate::state::trowel_state::TrowelState;
+use crate::state::app_state::{ActiveView, AppState};
 
-use super::{trowel_text_view::TrowelTextView, trowel_tree_view::TrowelTreeView};
+use super::{text_view::TextView, tree_view::TreeView};
 
-pub struct TrowelView {
-    text_view: TrowelTextView,
-    tree_view: TrowelTreeView,
+pub struct AppView {
+    text_view: TextView,
+    tree_view: TreeView,
 }
 
-impl StatefulWidget for TrowelView {
-    type State = TrowelState;
+impl StatefulWidget for AppView {
+    type State = AppState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        match state.active_window {
-            crate::app::Window::TreeView => {
+        match state.active_view {
+            ActiveView::TreeView => {
                 self.tree_view.render(area, buf, &mut state.tree_view_state);
             },
-            crate::app::Window::TextView => {
+            ActiveView::TextView => {
                 if let Some(view) = state.text_view_state.as_mut() {
                     self.text_view.render(area, buf, view);
                 }
@@ -29,11 +29,11 @@ impl StatefulWidget for TrowelView {
     }
 }
 
-impl TrowelView {
+impl AppView {
     pub fn new() -> Self {
         Self {
-            text_view: TrowelTextView::new(),
-            tree_view: TrowelTreeView::new(),
+            text_view: TextView::new(),
+            tree_view: TreeView::new(),
         }
     }
 }

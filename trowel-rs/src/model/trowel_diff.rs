@@ -50,17 +50,32 @@ impl TrowelDiff {
 
         for e in &self.0 {
             let mut values = Vec::new();
+            let mut unchanged: usize = 0;
 
             for (k, v) in e.values_sorted() {
+                if v.changed() {
+                    values.push(TreeItem::new_leaf(
+                        format!("{} {}", e.resource_path, k),
+                        Line::from(
+                            std::iter::once(Span::from(k))
+                            .chain(std::iter::once(Span::from(" ")))
+                            .chain(v.fmt().into_iter())
+                            .collect::<Vec<_>>(),
+                        ),
+                    ))
+                } else {
+                    unchanged += 1;
+                }
+            }
+
+            if unchanged > 0 {
                 values.push(TreeItem::new_leaf(
-                    format!("{} {}", e.resource_path, k),
-                    Line::from(
-                        std::iter::once(Span::from(k))
-                        .chain(std::iter::once(Span::from(" ")))
-                        .chain(v.fmt().into_iter())
-                        .collect::<Vec<_>>(),
-                    ),
-                ))
+                    format!("{} unchanged", e.resource_path),
+                    Line::from(vec![Span::styled(
+                        format!("{} unchanged attributes", unchanged),
+                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)
+                    )])
+                ));
             }
 
             let item = TreeItem::new(
@@ -157,10 +172,39 @@ impl TrowelDiffEntryBeforeAfter {
         vec![before, Span::from(" -> "), after]
     }
 
+    fn changed(&self) -> bool {
+        match &self.before {
+            TrowelDiffEntryBefore::Known(v1) => match &self.after {
+                TrowelDiffEntryBefore::Known(v2) => v1 != v2,
+                TrowelDiffEntryBefore::Sensitive(v2) => v1 != v2,
+                TrowelDiffEntryBefore::Unknown => true,
+                TrowelDiffEntryBefore::Absent => true,
+            },
+            TrowelDiffEntryBefore::Sensitive(v1) => match &self.after {
+                TrowelDiffEntryBefore::Known(v2) => v1 != v2,
+                TrowelDiffEntryBefore::Sensitive(v2) => v1 != v2,
+                TrowelDiffEntryBefore::Unknown => true,
+                TrowelDiffEntryBefore::Absent => true,
+            },
+            TrowelDiffEntryBefore::Unknown => match &self.after {
+                TrowelDiffEntryBefore::Known(_) => true,
+                TrowelDiffEntryBefore::Sensitive(_) => true,
+                TrowelDiffEntryBefore::Unknown => true,
+                TrowelDiffEntryBefore::Absent => true,
+            },
+            TrowelDiffEntryBefore::Absent => match &self.after {
+                TrowelDiffEntryBefore::Known(_) => true,
+                TrowelDiffEntryBefore::Sensitive(_) => true,
+                TrowelDiffEntryBefore::Unknown => true,
+                TrowelDiffEntryBefore::Absent => false,
+            },
+        }
+    }
+
     fn plaintext(v: &TrowelDiffEntryBefore) -> String {
         match v {
             TrowelDiffEntryBefore::Known(value) => value.to_string(),
-            TrowelDiffEntryBefore::Sensitive => "(sensitive value)".to_string(),
+            TrowelDiffEntryBefore::Sensitive(_) => "(sensitive value)".to_string(),
             TrowelDiffEntryBefore::Unknown => "(unknown value)".to_string(),
             TrowelDiffEntryBefore::Absent => "(absent value)".to_string(),
         }
@@ -169,7 +213,7 @@ impl TrowelDiffEntryBeforeAfter {
     fn style(v: &TrowelDiffEntryBefore) -> Style {
         match v {
             TrowelDiffEntryBefore::Known(_) => Style::default(),
-            TrowelDiffEntryBefore::Sensitive => Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+            TrowelDiffEntryBefore::Sensitive(_) => Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
             TrowelDiffEntryBefore::Unknown => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             TrowelDiffEntryBefore::Absent => Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD),
         }
@@ -179,7 +223,7 @@ impl TrowelDiffEntryBeforeAfter {
 #[derive(Clone)]
 enum TrowelDiffEntryBefore {
     Known(Value),
-    Sensitive,
+    Sensitive(Value),
     Unknown,
     Absent,
 }
@@ -189,7 +233,7 @@ type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
 fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryBefore, io::Error> {
     let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
-        .map(|_| TrowelDiffEntryBefore::Sensitive);
+        .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
     let before: Option<TrowelDiffEntryBefore> = change.before
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
@@ -207,7 +251,7 @@ fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange)
 fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryAfter, io::Error> {
     let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
-        .map(|_| TrowelDiffEntryAfter::Sensitive);
+        .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
     let after: Option<TrowelDiffEntryAfter> = change.after
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())

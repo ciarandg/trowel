@@ -1,21 +1,20 @@
+use tui_scrollview::ScrollViewState;
 use tui_tree_widget::TreeState;
 
 use crate::model::trowel_diff::TrowelDiff;
 
 pub struct AppState {
     pub active_window: Window,
-    pub tree_state: TreeState<String>,
-    pub diff: TrowelDiff,
-    pub text_plan_state: Option<TextPlanState>,
+    pub text_view_state: Option<TextViewState>,
+    pub tree_view_state: TreeViewState,
 }
 
 impl AppState {
     pub fn new(diff: TrowelDiff, text_plan: Option<String>) -> AppState {
         AppState {
             active_window: Window::TreeView,
-            tree_state: TreeState::default(),
-            diff,
-            text_plan_state: text_plan.map(TextPlanState::new),
+            text_view_state: text_plan.map(TextViewState::new),
+            tree_view_state: TreeViewState::new(diff),
         }
     }
 
@@ -37,36 +36,30 @@ pub enum Window {
     TextView,
 }
 
-pub struct TextPlanState {
+pub struct TextViewState {
     pub plan: String,
-    pub scroll_y: u16,
+    pub scroll_view_state: ScrollViewState,
 }
 
-impl TextPlanState {
+impl TextViewState {
     pub fn new(plan: String) -> Self {
         Self {
             plan,
-            scroll_y: 0
+            scroll_view_state: ScrollViewState::new(),
         }
     }
+}
 
-    /// Scrolls up by 1 row
-    ///
-    /// Returns true if scrolled, false if already at the top
-    pub fn scroll_up(&mut self) -> bool {
-        if self.scroll_y > 0 {
-            self.scroll_y -= 1;
-            true
-        } else {
-            false
+pub struct TreeViewState {
+    pub diff: TrowelDiff,
+    pub tree_state: TreeState<String>,
+}
+
+impl TreeViewState {
+    fn new(diff: TrowelDiff) -> Self {
+        TreeViewState {
+            diff,
+            tree_state: TreeState::default(),
         }
-    }
-
-    /// Scrolls down by 1 row
-    ///
-    /// Returns true if scrolled, false if already at the bottom
-    pub fn scroll_down(&mut self) -> bool {
-        self.scroll_y += 1;
-        true
     }
 }

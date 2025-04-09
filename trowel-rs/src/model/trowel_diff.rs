@@ -10,6 +10,7 @@ use tui_tree_widget::TreeItem;
 
 use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::{resource_to_verb, verb_to_color, verb_to_past_tense, Verb}};
 
+#[derive(Clone)]
 pub struct TrowelDiff(Vec<TrowelDiffEntry>);
 
 impl TrowelDiff {

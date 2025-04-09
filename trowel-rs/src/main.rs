@@ -1,5 +1,6 @@
 use std::{error::Error, ffi::OsStr, fs, io, path::{Path, PathBuf}, process::{Command, Stdio}};
 
+use app::TextViewState;
 use clap::{command, Parser};
 use model::trowel_diff::TrowelDiff;
 use ratatui::{
@@ -10,6 +11,7 @@ use tempfile::NamedTempFile;
 mod app;
 mod ui;
 mod model;
+mod widget;
 
 use crate::{
     app::AppState,
@@ -127,15 +129,24 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Re
         match event::read()? {
             Event::Key(key) if !matches!(key.kind, KeyEventKind::Press) => false,
             Event::Key(key) if is_quit_binding(&key) => return Ok(()),
+            Event::Key(key) if key.code == KeyCode::Tab => app.toggle_view(),
             Event::Key(key) => match app.active_window {
                 app::Window::TreeView => tree_view_binding(app, &key),
-                app::Window::TextView => text_view_binding(app, &key),
+                app::Window::TextView => {
+                    match app.text_view_state.as_mut() {
+                        Some(state) => {
+                            text_view_binding(state, &key);
+                            true
+                        },
+                        None => false,
+                    }
+                },
             },
             Event::Mouse(mouse) => match mouse.kind {
-                MouseEventKind::ScrollDown => app.tree_state.scroll_down(1),
-                MouseEventKind::ScrollUp => app.tree_state.scroll_up(1),
+                MouseEventKind::ScrollDown => app.tree_view_state.tree_state.scroll_down(1),
+                MouseEventKind::ScrollUp => app.tree_view_state.tree_state.scroll_up(1),
                 MouseEventKind::Down(_button) => {
-                    app.tree_state.click_at(Position::new(mouse.column, mouse.row))
+                    app.tree_view_state.tree_state.click_at(Position::new(mouse.column, mouse.row))
                 }
                 _ => false,
             },
@@ -156,51 +167,37 @@ fn is_quit_binding(key: &KeyEvent) -> bool {
 
 fn tree_view_binding(app: &mut AppState, key: &KeyEvent) -> bool {
     match key.code {
-        // Switch between views
-        KeyCode::Tab => app.toggle_view(),
-
         // Fold and unfold
-        KeyCode::Enter => app.tree_state.toggle_selected(),
+        KeyCode::Enter => app.tree_view_state.tree_state.toggle_selected(),
 
         // Basic navigation
-        KeyCode::Char('h') => app.tree_state.key_left(),
-        KeyCode::Char('l') => app.tree_state.key_right(),
-        KeyCode::Char('j') => app.tree_state.key_down(),
-        KeyCode::Char('k') => app.tree_state.key_up(),
-        KeyCode::Left => app.tree_state.key_left(),
-        KeyCode::Right => app.tree_state.key_right(),
-        KeyCode::Down => app.tree_state.key_down(),
-        KeyCode::Up => app.tree_state.key_up(),
+        KeyCode::Char('h') => app.tree_view_state.tree_state.key_left(),
+        KeyCode::Char('l') => app.tree_view_state.tree_state.key_right(),
+        KeyCode::Char('j') => app.tree_view_state.tree_state.key_down(),
+        KeyCode::Char('k') => app.tree_view_state.tree_state.key_up(),
+        KeyCode::Left => app.tree_view_state.tree_state.key_left(),
+        KeyCode::Right => app.tree_view_state.tree_state.key_right(),
+        KeyCode::Down => app.tree_view_state.tree_state.key_down(),
+        KeyCode::Up => app.tree_view_state.tree_state.key_up(),
 
         // Jump to top and bottom
-        KeyCode::Char('g') => app.tree_state.select_first(),
-        KeyCode::Char('G') => app.tree_state.select_last(),
-        KeyCode::Home => app.tree_state.select_first(),
-        KeyCode::End => app.tree_state.select_last(),
+        KeyCode::Char('g') => app.tree_view_state.tree_state.select_first(),
+        KeyCode::Char('G') => app.tree_view_state.tree_state.select_last(),
+        KeyCode::Home => app.tree_view_state.tree_state.select_first(),
+        KeyCode::End => app.tree_view_state.tree_state.select_last(),
         _ => false,
     }
 }
 
-fn text_view_binding(app: &mut AppState, key: &KeyEvent) -> bool {
+fn text_view_binding(state: &mut TextViewState, key: &KeyEvent) {
     match key.code { // TODO deduplicate bindings with TextView
-        // Switch between views
-        KeyCode::Tab => app.toggle_view(),
-
         // Basic navigation
         KeyCode::Char('j') => {
-            let state = app.text_plan_state.as_mut();
-            match state {
-                Some(s) => s.scroll_down(),
-                None => false,
-            }
+            state.scroll_view_state.scroll_down()
         },
         KeyCode::Char('k') => {
-            let state = app.text_plan_state.as_mut();
-            match state {
-                Some(s) => s.scroll_up(),
-                None => false,
-            }
+            state.scroll_view_state.scroll_up()
         },
-        _ => false
+        _ => ()
     }
 }

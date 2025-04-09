@@ -12,7 +12,9 @@ impl StatefulWidget for TrowelTextView {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let text_plan = &state.plan;
-        let scrollview_height = text_plan.lines().count() as u16 + 2; // TODO figure out why 2 is the correct value
+
+        // TODO figure out why 2 is the correct value. Also this breaks when text wraps
+        let scrollview_height = text_plan.lines().count() as u16 + 2;
 
         let width = if buf.area.height < scrollview_height {
             buf.area.width - 1

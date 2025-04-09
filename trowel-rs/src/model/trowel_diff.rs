@@ -8,7 +8,7 @@ use ratatui::{
 use serde_json::Value;
 use tui_tree_widget::TreeItem;
 
-use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::{resource_to_verb, verb_to_color, verb_to_past_tense, Verb}};
+use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::Verb};
 
 #[derive(Clone)]
 pub struct TrowelDiff(Vec<TrowelDiffEntry>);
@@ -18,7 +18,7 @@ impl TrowelDiff {
         let mut out = TrowelDiff(Vec::new());
 
         for rc in &plan.resource_changes {
-            let verb: Verb = resource_to_verb(rc)?;
+            let verb: Verb = Verb::from_resource(rc)?;
 
             if verb != Verb::Ignore {
                 let mut values = HashMap::new();
@@ -68,9 +68,9 @@ impl TrowelDiff {
                     Line::from(vec![
                         Span::styled(
                             e.resource_path.to_string(),
-                            Style::default().fg(verb_to_color(&e.verb)).add_modifier(Modifier::BOLD)
+                            Style::default().fg(e.verb.to_color()).add_modifier(Modifier::BOLD)
                         ),
-                        Span::from(format!(" will be {}", verb_to_past_tense(&e.verb))),
+                        Span::from(format!(" will be {}", e.verb.to_past_tense())),
                     ]),
                     values,
                 )?;
@@ -106,11 +106,10 @@ impl TrowelDiff {
             }
 
             let plaintext = format!("{} {}", verb.name_lower(), use_count);
-            let color = verb_to_color(verb);
             lines.push(
                 Span::styled(
                     plaintext,
-                    Style::default().fg(color).add_modifier(Modifier::BOLD)
+                    Style::default().fg(verb.to_color()).add_modifier(Modifier::BOLD)
                 )
             );
 

@@ -14,6 +14,51 @@ pub enum Verb {
 }
 
 impl Verb {
+    pub fn from_resource(actions: &TfPlanResourceChange) -> Result<Self, io::Error> {
+        let mut sorted = actions.change.actions.clone();
+        sorted.sort();
+        if sorted == vec!["no-op"] {
+            Ok(Self::Ignore)
+        } else if sorted == vec!["create"] {
+            Ok(Self::Create)
+        } else if sorted == vec!["update"] {
+            Ok(Self::Update)
+        } else if sorted == vec!["delete"] {
+            Ok(Self::Destroy)
+        } else if sorted == vec!["create", "delete"] {
+            Ok(Self::Replace)
+        } else if sorted == vec!["read"] {
+            Ok(Self::Read)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Verb not found for actions: {:?}", sorted)
+            ))
+        }
+    }
+
+    pub fn to_past_tense(&self) -> String {
+        match self {
+            Self::Create => "created",
+            Self::Update => "updated",
+            Self::Replace => "replaced",
+            Self::Destroy => "destroyed",
+            Self::Read => "read",
+            Self::Ignore => "ignored",
+        }.to_string()
+    }
+
+    pub fn to_color(&self) -> Color {
+        match self {
+            Self::Create => Color::Green,
+            Self::Update => Color::Yellow,
+            Self::Replace => Color::Magenta,
+            Self::Destroy => Color::Red,
+            Self::Read => Color::Cyan,
+            Self::Ignore => Color::Gray,
+        }
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             Verb::Create => "Create",
@@ -27,51 +72,5 @@ impl Verb {
 
     pub fn name_lower(&self) -> String {
         self.name().to_lowercase()
-    }
-}
-
-// TODO put all functions below inside impl
-pub fn resource_to_verb(actions: &TfPlanResourceChange) -> Result<Verb, io::Error> {
-    let mut sorted = actions.change.actions.clone();
-    sorted.sort();
-    if sorted == vec!["no-op"] {
-        Ok(Verb::Ignore)
-    } else if sorted == vec!["create"] {
-        Ok(Verb::Create)
-    } else if sorted == vec!["update"] {
-        Ok(Verb::Update)
-    } else if sorted == vec!["delete"] {
-        Ok(Verb::Destroy)
-    } else if sorted == vec!["create", "delete"] {
-        Ok(Verb::Replace)
-    } else if sorted == vec!["read"] {
-        Ok(Verb::Read)
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("Verb not found for actions: {:?}", sorted)
-        ))
-    }
-}
-
-pub fn verb_to_past_tense(verb: &Verb) -> String {
-    match verb {
-        Verb::Create => "created",
-        Verb::Update => "updated",
-        Verb::Replace => "replaced",
-        Verb::Destroy => "destroyed",
-        Verb::Read => "read",
-        Verb::Ignore => "ignored",
-    }.to_string()
-}
-
-pub fn verb_to_color(verb: &Verb) -> Color {
-    match verb {
-        Verb::Create => Color::Green,
-        Verb::Update => Color::Yellow,
-        Verb::Replace => Color::Magenta,
-        Verb::Destroy => Color::Red,
-        Verb::Read => Color::Cyan,
-        Verb::Ignore => Color::Gray,
     }
 }

@@ -1,10 +1,10 @@
 use ratatui::{
-    buffer::Buffer, layout::Rect, widgets::StatefulWidget
+    buffer::Buffer, layout::Rect, widgets::{StatefulWidget, Widget}
 };
 
 use crate::state::app_state::{ActiveView, AppState};
 
-use super::{text_view::TextView, tree_view::TreeView};
+use super::{error_view::ErrorView, text_view::TextView, tree_view::TreeView};
 
 pub struct AppView {
     text_view: TextView,
@@ -20,10 +20,10 @@ impl StatefulWidget for AppView {
                 self.tree_view.render(area, buf, &mut state.tree_view_state);
             },
             ActiveView::TextView => {
-                if let Some(view) = state.text_view_state.as_mut() {
-                    self.text_view.render(area, buf, view);
+                match state.text_view_state.as_mut() {
+                    Some(view) => self.text_view.render(area, buf, view),
+                    None => ErrorView::new("No text plan available!\nYou are likely viewing a JSON plan.".to_string()).render(area, buf),
                 }
-                // TODO error screen
             },
         }
     }

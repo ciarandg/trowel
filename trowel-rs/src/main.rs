@@ -21,9 +21,9 @@ use crate::{
 #[derive(Parser, Debug)]
 #[command(version, about = "A TUI for working with OpenTofu and Terraform", long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, help = "A path to a plan file (binary or JSON)")]
     plan_file: Option<PathBuf>,
-    #[arg(short, long, default_value = "tofu")]
+    #[arg(short, long, default_value = "tofu", help = "The name/path of a TF binary")]
     binary: String,
 }
 

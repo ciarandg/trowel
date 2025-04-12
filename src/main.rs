@@ -15,10 +15,12 @@ use ratatui::{
 };
 use state::app_state::{AppState, Lifecycle};
 use tempfile::NamedTempFile;
+use tf_client::TfClient;
 use widget::app_view::AppView;
 
 mod model;
 mod state;
+mod tf_client;
 mod widget;
 
 use crate::model::tf_plan::TfPlan;
@@ -50,13 +52,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let plan_file = args.plan_file;
-    let binary = args.binary;
     let show_experimental_warning = !args.hide_experimental_warning;
 
+    let tf_client = TfClient::new(args.binary);
+
     let (diff, text_plan) = match plan_file {
-        Some(p) => generate_diff_from_plan(p, &binary),
+        Some(p) => generate_diff_from_plan(p, &tf_client),
         None => {
-            let (diff, plan) = generate_diff(&binary)?;
+            let (diff, plan) = generate_diff(&tf_client)?;
             Ok((diff, Some(plan)))
         }
     }?;
@@ -69,32 +72,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn generate_binary_plan(binary: &String) -> Result<NamedTempFile, io::Error> {
-    let file = NamedTempFile::new()?;
-    match file.path().to_str() {
-        Some(p) => {
-            let mut cmd = Command::new(binary)
-                .arg("plan")
-                .arg("-out")
-                .arg(p)
-                .stderr(Stdio::inherit())
-                .spawn()?;
-            let _ = cmd.wait()?;
-            Ok(file)
-        }
-        None => Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "No string representation available for tempfile path",
-        )),
-    }
-}
-
 type TextPlan = String;
 
-fn generate_diff(binary: &String) -> Result<(TrowelDiff, TextPlan), io::Error> {
+fn generate_diff(client: &TfClient) -> Result<(TrowelDiff, TextPlan), io::Error> {
     // NOTE: NamedTempFile automatically deletes its tempfile when dropped via its destructor, and so should be dropped explicitly
-    let binary_tempfile = generate_binary_plan(binary)?;
-    let (diff, plan) = generate_diff_binary(binary_tempfile.path().to_path_buf(), binary)?;
+    let binary_tempfile = client.plan()?;
+    let (diff, plan) = generate_diff_binary(binary_tempfile.path().to_path_buf(), client)?;
     drop(binary_tempfile);
     Ok((diff, plan))
 }
@@ -106,13 +89,13 @@ fn is_json_file(path: &Path) -> bool {
 
 fn generate_diff_from_plan(
     plan_file: PathBuf,
-    binary: &String,
+    client: &TfClient,
 ) -> Result<(TrowelDiff, Option<TextPlan>), io::Error> {
     if is_json_file(plan_file.as_path()) {
         let json_data = fs::read_to_string(&plan_file)?;
         Ok((generate_diff_json(json_data)?, None))
     } else {
-        let (diff, plan) = generate_diff_binary(plan_file, binary)?;
+        let (diff, plan) = generate_diff_binary(plan_file, client)?;
         Ok((diff, Some(plan)))
     }
 }
@@ -124,36 +107,12 @@ fn generate_diff_json(json_data: String) -> Result<TrowelDiff, io::Error> {
 
 fn generate_diff_binary(
     plan_file: PathBuf,
-    binary: &String,
+    tf_client: &TfClient,
 ) -> Result<(TrowelDiff, TextPlan), io::Error> {
-    let text_plan = generate_text_plan(&plan_file, binary)?;
-    let output = Command::new(binary)
-        .arg("show")
-        .arg("-json")
-        .arg(plan_file)
-        .output()?;
-    match std::str::from_utf8(&output.stdout) {
-        Ok(out) => Ok((generate_diff_json(out.to_string())?, text_plan)),
-        Err(_) => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Failed to parse JSON plan stdout into UTF-8",
-        )),
-    }
-}
-
-fn generate_text_plan(binary_plan: &PathBuf, binary: &String) -> Result<TextPlan, io::Error> {
-    let output = Command::new(binary)
-        .arg("show")
-        .arg("-no-color")
-        .arg(binary_plan)
-        .output()?;
-    match std::str::from_utf8(&output.stdout) {
-        Ok(out) => Ok(out.to_string()),
-        Err(_) => Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Failed to parse text plan stdout into UTF-8",
-        )),
-    }
+    let text_plan = tf_client.show_as_text(&plan_file)?;
+    let json_plan = tf_client.show_as_json(&plan_file)?;
+    let diff = generate_diff_json(json_plan)?;
+    Ok((diff, text_plan))
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Result<()> {

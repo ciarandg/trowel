@@ -56,13 +56,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tf_client = TfClient::new(args.binary);
 
-    let (diff, text_plan) = match plan_file {
-        Some(p) => generate_diff_from_plan(p, &tf_client),
+    let (binary_tempfile, plan_file) = match plan_file {
+        Some(f) => (None, f),
         None => {
-            let (diff, plan) = generate_diff(&tf_client)?;
-            Ok((diff, Some(plan)))
+            let tempfile = tf_client.plan()?;
+            let plan = tempfile.path().to_path_buf();
+            (Some(tempfile), plan)
         }
-    }?;
+    };
+    let diff = generate_diff(&tf_client, &plan_file)?;
+    let text_plan = generate_text_plan(&tf_client, &plan_file)?;
+    if let Some(tempfile) = binary_tempfile {
+        // NamedTempFile automatically deletes its tempfile when dropped via its destructor, and so should be dropped explicitly
+        drop(tempfile);
+    };
 
     let mut terminal = ratatui::init();
     let mut app = AppState::new(diff, text_plan, show_experimental_warning);
@@ -74,45 +81,32 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 type TextPlan = String;
 
-fn generate_diff(client: &TfClient) -> Result<(TrowelDiff, TextPlan), io::Error> {
-    // NOTE: NamedTempFile automatically deletes its tempfile when dropped via its destructor, and so should be dropped explicitly
-    let binary_tempfile = client.plan()?;
-    let (diff, plan) = generate_diff_binary(binary_tempfile.path().to_path_buf(), client)?;
-    drop(binary_tempfile);
-    Ok((diff, plan))
+fn generate_diff(client: &TfClient, plan_file: &PathBuf) -> Result<TrowelDiff, io::Error> {
+    let json_plan = if is_json_file(plan_file) {
+        fs::read_to_string(plan_file)?
+    } else {
+        client.show_as_json(plan_file)?
+    };
+    let parsed: TfPlan = serde_json::from_str(&json_plan)?;
+    let diff = TrowelDiff::from_tf_plan(&parsed)?;
+    Ok(diff)
+}
+
+fn generate_text_plan(
+    client: &TfClient,
+    plan_file: &PathBuf,
+) -> Result<Option<TextPlan>, io::Error> {
+    let text_plan = if is_json_file(plan_file) {
+        None
+    } else {
+        Some(client.show_as_text(plan_file)?)
+    };
+    Ok(text_plan)
 }
 
 fn is_json_file(path: &Path) -> bool {
     let extension = path.extension().and_then(OsStr::to_str);
     matches!(extension, Some("json"))
-}
-
-fn generate_diff_from_plan(
-    plan_file: PathBuf,
-    client: &TfClient,
-) -> Result<(TrowelDiff, Option<TextPlan>), io::Error> {
-    if is_json_file(plan_file.as_path()) {
-        let json_data = fs::read_to_string(&plan_file)?;
-        Ok((generate_diff_json(json_data)?, None))
-    } else {
-        let (diff, plan) = generate_diff_binary(plan_file, client)?;
-        Ok((diff, Some(plan)))
-    }
-}
-
-fn generate_diff_json(json_data: String) -> Result<TrowelDiff, io::Error> {
-    let parsed: TfPlan = serde_json::from_str(&json_data)?;
-    TrowelDiff::from_tf_plan(&parsed)
-}
-
-fn generate_diff_binary(
-    plan_file: PathBuf,
-    tf_client: &TfClient,
-) -> Result<(TrowelDiff, TextPlan), io::Error> {
-    let text_plan = tf_client.show_as_text(&plan_file)?;
-    let json_plan = tf_client.show_as_json(&plan_file)?;
-    let diff = generate_diff_json(json_plan)?;
-    Ok((diff, text_plan))
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Result<()> {

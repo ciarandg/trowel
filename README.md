@@ -14,4 +14,4 @@ When you run `trowel` without any arguments, it creates a tempfile and runs `tof
 
 ## Installation
 
-Currently, `trowel` is packaged via a Nix Flake (see `flake.nix`) and via the [uv](https://github.com/astral-sh/uv) package manager. It is not yet hosted on any external package repositories.
+Currently, `trowel` is packaged via a Nix Flake (see `flake.nix`) and via Cargo. It is not yet hosted on any external package repositories.

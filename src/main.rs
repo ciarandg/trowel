@@ -3,7 +3,6 @@ use std::{
     ffi::OsStr,
     fs, io,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
 };
 
 use clap::{Parser, command};
@@ -14,7 +13,6 @@ use ratatui::{
     crossterm::event::{self},
 };
 use state::app_state::{AppState, Lifecycle};
-use tempfile::NamedTempFile;
 use tf_client::TfClient;
 use widget::app_view::AppView;
 

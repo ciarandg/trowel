@@ -19,15 +19,17 @@ pub struct AppState {
     pub active_view: ActiveView,
     pub text_view_state: Option<TextViewState>,
     pub tree_view_state: TreeViewState,
+    pub show_experimental_warning: bool,
 }
 
 impl AppState {
-    pub fn new(diff: TrowelDiff, text_plan: Option<String>) -> AppState {
+    pub fn new(diff: TrowelDiff, text_plan: Option<String>, show_experimental_warning: bool) -> AppState {
         AppState {
             lifecycle: Lifecycle::Running,
             active_view: ActiveView::TreeView,
             text_view_state: text_plan.map(TextViewState::new),
             tree_view_state: TreeViewState::new(diff),
+            show_experimental_warning
         }
     }
 

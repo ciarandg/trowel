@@ -25,6 +25,8 @@ struct Args {
     plan_file: Option<PathBuf>,
     #[arg(short, long, default_value = "tofu", help = "The name/path of a TF binary")]
     binary: String,
+    #[arg(long, action, default_value_t = false, help = "Disable big red warning")]
+    hide_experimental_warning: bool
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -34,6 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let plan_file = args.plan_file;
     let binary = args.binary;
+    let show_experimental_warning = !args.hide_experimental_warning;
+
     let (diff, text_plan) = match plan_file {
         Some(p) => generate_diff_from_plan(p, &binary),
         None => {
@@ -43,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }?;
 
     let mut terminal = ratatui::init();
-    let mut app = AppState::new(diff, text_plan);
+    let mut app = AppState::new(diff, text_plan, show_experimental_warning);
     run_app(&mut terminal, &mut app)?;
     ratatui::restore();
 

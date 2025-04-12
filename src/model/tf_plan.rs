@@ -22,7 +22,7 @@ pub struct TfPlan {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPlannedValues {
-    pub root_module: TfPlanPlannedValuesRootModule
+    pub root_module: TfPlanPlannedValuesRootModule,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -66,7 +66,7 @@ pub struct TfPlanResourceChange {
     pub provider_name: String,
     pub change: TfPlanResourceChangeChange,
     pub action_reason: Option<String>,
-    pub module_address: Option<String>
+    pub module_address: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -77,7 +77,7 @@ pub struct TfPlanResourceChangeChange {
     pub after: Option<HashMap<String, Value>>,
     pub after_unknown: HashMap<String, Value>,
     pub before_sensitive: Value, // TODO this is really Either<HashMap<String, Value>, false>
-    pub after_sensitive: Value, // TODO this is really Either<HashMap<String, Value>, false>
+    pub after_sensitive: Value,  // TODO this is really Either<HashMap<String, Value>, false>
     pub replace_paths: Option<Vec<Vec<String>>>,
 }
 
@@ -98,19 +98,25 @@ fn process_sensitive_values(v: &Value) -> Result<SensitiveValues, io::Error> {
     match v {
         Value::Bool(b) => {
             if *b {
-                Err(io::Error::new(io::ErrorKind::InvalidInput, "Sensitive values can be boolean, but should always be false if so"))
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Sensitive values can be boolean, but should always be false if so",
+                ))
             } else {
                 Ok(None)
             }
-        },
+        }
         Value::Object(map) => {
             let mut result = HashMap::new();
             for (key, value) in map.iter() {
                 result.insert(key.clone(), value.clone());
             }
             Ok(Some(result))
-        },
-        _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "Sensitive values should either be a false boolean or a dictionary")),
+        }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Sensitive values should either be a false boolean or a dictionary",
+        )),
     }
 }
 
@@ -128,7 +134,7 @@ type TfPlanPriorStateValues = TfPlanPlannedValues;
 #[serde(deny_unknown_fields)]
 pub struct TfPlanConfiguration {
     pub provider_config: HashMap<String, TfPlanConfigurationProviderConfig>,
-    pub root_module: Value
+    pub root_module: Value,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -144,7 +150,7 @@ pub struct TfPlanConfigurationProviderConfig {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanConfigurationRootModule {
-    pub resources: Vec<Value>, // TODO
+    pub resources: Vec<Value>,                // TODO
     pub module_calls: HashMap<String, Value>, // TODO
 }
 

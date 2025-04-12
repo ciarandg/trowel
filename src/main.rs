@@ -1,16 +1,24 @@
-use std::{error::Error, ffi::OsStr, fs, io, path::{Path, PathBuf}, process::{Command, Stdio}};
+use std::{
+    error::Error,
+    ffi::OsStr,
+    fs, io,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
-use clap::{command, Parser};
+use clap::{Parser, command};
 use model::trowel_diff::TrowelDiff;
 use ratatui::{
-    backend::Backend, crossterm::event::{self}, Frame, Terminal
+    Frame, Terminal,
+    backend::Backend,
+    crossterm::event::{self},
 };
 use state::app_state::{AppState, Lifecycle};
 use tempfile::NamedTempFile;
 use widget::app_view::AppView;
 
-mod state;
 mod model;
+mod state;
 mod widget;
 
 use crate::model::tf_plan::TfPlan;
@@ -20,10 +28,20 @@ use crate::model::tf_plan::TfPlan;
 struct Args {
     #[arg(short, long, help = "A path to a plan file (binary or JSON)")]
     plan_file: Option<PathBuf>,
-    #[arg(short, long, default_value = "tofu", help = "The name/path of a TF binary")]
+    #[arg(
+        short,
+        long,
+        default_value = "tofu",
+        help = "The name/path of a TF binary"
+    )]
     binary: String,
-    #[arg(long, action, default_value_t = false, help = "Disable big red warning")]
-    hide_experimental_warning: bool
+    #[arg(
+        long,
+        action,
+        default_value_t = false,
+        help = "Disable big red warning"
+    )]
+    hide_experimental_warning: bool,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -63,10 +81,11 @@ fn generate_binary_plan(binary: &String) -> Result<NamedTempFile, io::Error> {
                 .spawn()?;
             let _ = cmd.wait()?;
             Ok(file)
-        },
-        None => {
-            Err(io::Error::new(io::ErrorKind::NotFound, "No string representation available for tempfile path"))
         }
+        None => Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "No string representation available for tempfile path",
+        )),
     }
 }
 
@@ -85,7 +104,10 @@ fn is_json_file(path: &Path) -> bool {
     matches!(extension, Some("json"))
 }
 
-fn generate_diff_from_plan(plan_file: PathBuf, binary: &String) -> Result<(TrowelDiff, Option<TextPlan>), io::Error> {
+fn generate_diff_from_plan(
+    plan_file: PathBuf,
+    binary: &String,
+) -> Result<(TrowelDiff, Option<TextPlan>), io::Error> {
     if is_json_file(plan_file.as_path()) {
         let json_data = fs::read_to_string(&plan_file)?;
         Ok((generate_diff_json(json_data)?, None))
@@ -100,7 +122,10 @@ fn generate_diff_json(json_data: String) -> Result<TrowelDiff, io::Error> {
     TrowelDiff::from_tf_plan(&parsed)
 }
 
-fn generate_diff_binary(plan_file: PathBuf, binary: &String) -> Result<(TrowelDiff, TextPlan), io::Error> {
+fn generate_diff_binary(
+    plan_file: PathBuf,
+    binary: &String,
+) -> Result<(TrowelDiff, TextPlan), io::Error> {
     let text_plan = generate_text_plan(&plan_file, binary)?;
     let output = Command::new(binary)
         .arg("show")
@@ -109,7 +134,10 @@ fn generate_diff_binary(plan_file: PathBuf, binary: &String) -> Result<(TrowelDi
         .output()?;
     match std::str::from_utf8(&output.stdout) {
         Ok(out) => Ok((generate_diff_json(out.to_string())?, text_plan)),
-        Err(_) => Err(io::Error::new(io::ErrorKind::InvalidData, "Failed to parse JSON plan stdout into UTF-8")),
+        Err(_) => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Failed to parse JSON plan stdout into UTF-8",
+        )),
     }
 }
 
@@ -121,7 +149,10 @@ fn generate_text_plan(binary_plan: &PathBuf, binary: &String) -> Result<TextPlan
         .output()?;
     match std::str::from_utf8(&output.stdout) {
         Ok(out) => Ok(out.to_string()),
-        Err(_) => Err(io::Error::new(io::ErrorKind::InvalidData, "Failed to parse text plan stdout into UTF-8")),
+        Err(_) => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Failed to parse text plan stdout into UTF-8",
+        )),
     }
 }
 
@@ -131,10 +162,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Re
             Lifecycle::Running => {
                 terminal.draw(|f| ui(f, app))?;
                 app.process_event(event::read()?);
-            },
-            Lifecycle::Quit => {
-                return Ok(())
-            },
+            }
+            Lifecycle::Quit => return Ok(()),
         }
     }
 }

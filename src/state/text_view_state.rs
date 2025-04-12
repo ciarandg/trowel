@@ -17,13 +17,9 @@ impl TextViewState {
     pub fn process_keypress(&mut self, key: &KeyEvent) {
         match key.code {
             // Basic navigation
-            KeyCode::Char('j') => {
-                self.scroll_view_state.scroll_down()
-            },
-            KeyCode::Char('k') => {
-                self.scroll_view_state.scroll_up()
-            },
-            _ => ()
+            KeyCode::Char('j') => self.scroll_view_state.scroll_down(),
+            KeyCode::Char('k') => self.scroll_view_state.scroll_up(),
+            _ => (),
         }
     }
 }

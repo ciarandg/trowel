@@ -1,5 +1,9 @@
 use ratatui::{
-    buffer::Buffer, layout::Rect, style::{Color, Modifier, Style, Stylize}, text::Span, widgets::{Block, Scrollbar, ScrollbarOrientation, StatefulWidget}
+    buffer::Buffer,
+    layout::Rect,
+    style::{Color, Modifier, Style, Stylize},
+    text::Span,
+    widgets::{Block, Scrollbar, ScrollbarOrientation, StatefulWidget},
 };
 use tui_tree_widget::Tree;
 
@@ -17,7 +21,8 @@ impl StatefulWidget for TreeView {
                     .fg(Color::Black)
                     .bg(Color::LightBlue)
                     .add_modifier(Modifier::BOLD);
-                let tree = t.block(Self::wrapper_block(&state.diff))
+                let tree = t
+                    .block(Self::wrapper_block(&state.diff))
                     .experimental_scrollbar(Some(Self::scrollbar()))
                     .highlight_style(style);
                 tree.render(area, buf, &mut state.tree_state);

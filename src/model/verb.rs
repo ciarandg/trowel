@@ -1,5 +1,5 @@
-use std::io;
 use ratatui::style::Color;
+use std::io;
 
 use super::tf_plan::TfPlanResourceChange;
 
@@ -32,7 +32,7 @@ impl Verb {
         } else {
             Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Verb not found for actions: {:?}", sorted)
+                format!("Verb not found for actions: {:?}", sorted),
             ))
         }
     }
@@ -45,7 +45,8 @@ impl Verb {
             Self::Destroy => "destroyed",
             Self::Read => "read",
             Self::Ignore => "ignored",
-        }.to_string()
+        }
+        .to_string()
     }
 
     pub fn to_color(&self) -> Color {

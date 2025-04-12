@@ -1,4 +1,10 @@
-use ratatui::{buffer::Buffer, layout::{Constraint, Flex, Layout, Rect}, style::{Color, Modifier, Style, Stylize}, text::{Line, Span}, widgets::{Block, BorderType, Clear, Paragraph, Widget}};
+use ratatui::{
+    buffer::Buffer,
+    layout::{Constraint, Flex, Layout, Rect},
+    style::{Color, Modifier, Style, Stylize},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Clear, Paragraph, Widget},
+};
 
 pub struct ErrorView {
     message: String,
@@ -7,9 +13,10 @@ pub struct ErrorView {
 impl Widget for ErrorView {
     fn render(self, area: Rect, buf: &mut Buffer)
     where
-        Self: Sized {
-            Self::outer_block().render(area, buf);
-            self.render_popup(area, buf);
+        Self: Sized,
+    {
+        Self::outer_block().render(area, buf);
+        self.render_popup(area, buf);
     }
 }
 
@@ -35,9 +42,15 @@ impl ErrorView {
     }
 
     fn render_popup(&self, area: Rect, buf: &mut Buffer) {
-        let block = Block::bordered().border_type(BorderType::Thick).style(Color::Yellow);
-        let style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
-        let text: Vec<Line> = self.message.lines()
+        let block = Block::bordered()
+            .border_type(BorderType::Thick)
+            .style(Color::Yellow);
+        let style = Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD);
+        let text: Vec<Line> = self
+            .message
+            .lines()
             .map(|l| Span::styled(l, style))
             .map(Line::from)
             .collect();
@@ -45,7 +58,9 @@ impl ErrorView {
 
         let area = Self::center(
             area,
-            Constraint::Length(self.message.lines().map(|l| l.len()).max().unwrap_or(94) as u16 + 6),
+            Constraint::Length(
+                self.message.lines().map(|l| l.len()).max().unwrap_or(94) as u16 + 6,
+            ),
             Constraint::Length(self.message.lines().count() as u16 + 2),
         );
 

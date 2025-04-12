@@ -1,4 +1,7 @@
-use ratatui::{crossterm::event::{KeyCode, KeyEvent, MouseEvent, MouseEventKind}, layout::Position};
+use ratatui::{
+    crossterm::event::{KeyCode, KeyEvent, MouseEvent, MouseEventKind},
+    layout::Position,
+};
 use tui_tree_widget::TreeState;
 
 use crate::model::trowel_diff::TrowelDiff;
@@ -44,9 +47,9 @@ impl TreeViewState {
         match mouse.kind {
             MouseEventKind::ScrollDown => self.tree_state.scroll_down(1),
             MouseEventKind::ScrollUp => self.tree_state.scroll_up(1),
-            MouseEventKind::Down(_button) => {
-                self.tree_state.click_at(Position::new(mouse.column, mouse.row))
-            }
+            MouseEventKind::Down(_button) => self
+                .tree_state
+                .click_at(Position::new(mouse.column, mouse.row)),
             _ => false,
         };
     }

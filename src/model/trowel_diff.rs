@@ -3,12 +3,16 @@ use std::io;
 
 use ratatui::style::Color;
 use ratatui::{
-    style::{Modifier, Style}, text::{Line, Span}
+    style::{Modifier, Style},
+    text::{Line, Span},
 };
 use serde_json::Value;
 use tui_tree_widget::TreeItem;
 
-use super::{tf_plan::{TfPlan, TfPlanResourceChangeChange}, verb::Verb};
+use super::{
+    tf_plan::{TfPlan, TfPlanResourceChangeChange},
+    verb::Verb,
+};
 
 #[derive(Clone)]
 pub struct TrowelDiff(Vec<TrowelDiffEntry>);
@@ -30,7 +34,7 @@ impl TrowelDiff {
                         TrowelDiffEntryBeforeAfter {
                             before: get_before_value(&n, &rc.change)?,
                             after: get_after_value(&n, &rc.change)?,
-                        }
+                        },
                     );
                 }
 
@@ -38,7 +42,7 @@ impl TrowelDiff {
                     verb,
                     resource_path: rc.address.clone(),
                     values,
-              });
+                });
             }
         }
 
@@ -58,9 +62,9 @@ impl TrowelDiff {
                         format!("{} {}", e.resource_path, k),
                         Line::from(
                             std::iter::once(Span::from(k))
-                            .chain(std::iter::once(Span::from(" ")))
-                            .chain(v.fmt().into_iter())
-                            .collect::<Vec<_>>(),
+                                .chain(std::iter::once(Span::from(" ")))
+                                .chain(v.fmt().into_iter())
+                                .collect::<Vec<_>>(),
                         ),
                     ))
                 } else {
@@ -73,22 +77,26 @@ impl TrowelDiff {
                     format!("{} unchanged", e.resource_path),
                     Line::from(vec![Span::styled(
                         format!("{} unchanged attributes", unchanged),
-                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)
-                    )])
+                        Style::default()
+                            .fg(Color::DarkGray)
+                            .add_modifier(Modifier::BOLD),
+                    )]),
                 ));
             }
 
             let item = TreeItem::new(
-                    e.resource_path.clone(),
-                    Line::from(vec![
-                        Span::styled(
-                            e.resource_path.to_string(),
-                            Style::default().fg(e.verb.to_color()).add_modifier(Modifier::BOLD)
-                        ),
-                        Span::from(format!(" will be {}", e.verb.to_past_tense())),
-                    ]),
-                    values,
-                )?;
+                e.resource_path.clone(),
+                Line::from(vec![
+                    Span::styled(
+                        e.resource_path.to_string(),
+                        Style::default()
+                            .fg(e.verb.to_color())
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::from(format!(" will be {}", e.verb.to_past_tense())),
+                ]),
+                values,
+            )?;
 
             out.push(item);
         }
@@ -98,8 +106,7 @@ impl TrowelDiff {
 
     pub fn verb_uses(&self) -> HashMap<Verb, u8> {
         let mut out = HashMap::new();
-        for
-         e in &self.0 {
+        for e in &self.0 {
             let current = *out.get(&e.verb).unwrap_or(&0);
             out.insert(e.verb.clone(), current + 1);
         }
@@ -121,12 +128,12 @@ impl TrowelDiff {
             }
 
             let plaintext = format!("{} {}", verb.name_lower(), use_count);
-            lines.push(
-                Span::styled(
-                    plaintext,
-                    Style::default().fg(verb.to_color()).add_modifier(Modifier::BOLD)
-                )
-            );
+            lines.push(Span::styled(
+                plaintext,
+                Style::default()
+                    .fg(verb.to_color())
+                    .add_modifier(Modifier::BOLD),
+            ));
 
             if i == uses.len() - 1 {
                 lines.push(Span::from(" "));
@@ -159,15 +166,9 @@ pub struct TrowelDiffEntryBeforeAfter {
 
 impl TrowelDiffEntryBeforeAfter {
     pub fn fmt(&self) -> Vec<Span<'_>> {
-        let before = Span::styled(
-            Self::plaintext(&self.before),
-            Self::style(&self.before)
-        );
+        let before = Span::styled(Self::plaintext(&self.before), Self::style(&self.before));
 
-        let after = Span::styled(
-            Self::plaintext(&self.after),
-            Self::style(&self.after)
-        );
+        let after = Span::styled(Self::plaintext(&self.after), Self::style(&self.after));
 
         vec![before, Span::from(" -> "), after]
     }
@@ -213,9 +214,15 @@ impl TrowelDiffEntryBeforeAfter {
     fn style(v: &TrowelDiffEntryBefore) -> Style {
         match v {
             TrowelDiffEntryBefore::Known(_) => Style::default(),
-            TrowelDiffEntryBefore::Sensitive(_) => Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
-            TrowelDiffEntryBefore::Unknown => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-            TrowelDiffEntryBefore::Absent => Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD),
+            TrowelDiffEntryBefore::Sensitive(_) => Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+            TrowelDiffEntryBefore::Unknown => {
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            }
+            TrowelDiffEntryBefore::Absent => Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
         }
     }
 }
@@ -230,11 +237,16 @@ enum TrowelDiffEntryBefore {
 
 type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
 
-fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryBefore, io::Error> {
-    let before_sensitive: Option<TrowelDiffEntryBefore> = change.process_before_sensitive()?
+fn get_before_value(
+    resource_name: &String,
+    change: &TfPlanResourceChangeChange,
+) -> Result<TrowelDiffEntryBefore, io::Error> {
+    let before_sensitive: Option<TrowelDiffEntryBefore> = change
+        .process_before_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
-    let before: Option<TrowelDiffEntryBefore> = change.before
+    let before: Option<TrowelDiffEntryBefore> = change
+        .before
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
@@ -243,20 +255,26 @@ fn get_before_value(resource_name: &String, change: &TfPlanResourceChangeChange)
         Some(a) => Ok(a),
         None => match before {
             Some(b) => Ok(b),
-            None => Ok(TrowelDiffEntryBefore::Absent)
-        }
+            None => Ok(TrowelDiffEntryBefore::Absent),
+        },
     }
 }
 
-fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) -> Result<TrowelDiffEntryAfter, io::Error> {
-    let after_sensitive: Option<TrowelDiffEntryAfter> = change.process_after_sensitive()?
+fn get_after_value(
+    resource_name: &String,
+    change: &TfPlanResourceChangeChange,
+) -> Result<TrowelDiffEntryAfter, io::Error> {
+    let after_sensitive: Option<TrowelDiffEntryAfter> = change
+        .process_after_sensitive()?
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
-    let after: Option<TrowelDiffEntryAfter> = change.after
+    let after: Option<TrowelDiffEntryAfter> = change
+        .after
         .as_ref()
         .and_then(|map| map.get(resource_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
-    let after_unknown: Option<TrowelDiffEntryAfter> = change.after_unknown
+    let after_unknown: Option<TrowelDiffEntryAfter> = change
+        .after_unknown
         .get(resource_name)
         .map(|_| TrowelDiffEntryAfter::Unknown);
 
@@ -267,8 +285,8 @@ fn get_after_value(resource_name: &String, change: &TfPlanResourceChangeChange) 
             None => match after_unknown {
                 Some(c) => Ok(c),
                 None => Ok(TrowelDiffEntryAfter::Absent),
-            }
-        }
+            },
+        },
     }
 }
 

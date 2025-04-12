@@ -23,13 +23,17 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(diff: TrowelDiff, text_plan: Option<String>, show_experimental_warning: bool) -> AppState {
+    pub fn new(
+        diff: TrowelDiff,
+        text_plan: Option<String>,
+        show_experimental_warning: bool,
+    ) -> AppState {
         AppState {
             lifecycle: Lifecycle::Running,
             active_view: ActiveView::TreeView,
             text_view_state: text_plan.map(TextViewState::new),
             tree_view_state: TreeViewState::new(diff),
-            show_experimental_warning
+            show_experimental_warning,
         }
     }
 
@@ -41,12 +45,12 @@ impl AppState {
             Event::Key(key) => match self.active_view {
                 ActiveView::TreeView => {
                     self.tree_view_state.process_keypress(&key);
-                },
+                }
                 ActiveView::TextView => {
                     if let Some(state) = self.text_view_state.as_mut() {
                         state.process_keypress(&key);
                     }
-                },
+                }
             },
             Event::Mouse(mouse) => match self.active_view {
                 ActiveView::TreeView => self.tree_view_state.process_mouse_event(mouse),

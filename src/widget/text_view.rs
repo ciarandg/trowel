@@ -1,5 +1,9 @@
 use ratatui::{
-    buffer::Buffer, layout::{Rect, Size}, style::{Color, Modifier, Style, Stylize}, text::Span, widgets::{Block, Paragraph, StatefulWidget, Widget, Wrap}
+    buffer::Buffer,
+    layout::{Rect, Size},
+    style::{Color, Modifier, Style, Stylize},
+    text::Span,
+    widgets::{Block, Paragraph, StatefulWidget, Widget, Wrap},
 };
 use tui_scrollview::ScrollView;
 
@@ -43,8 +47,6 @@ impl TextView {
 
     fn text(&self, text: &str) -> impl Widget {
         let block = Block::bordered().title(Self::title());
-        Paragraph::new(text)
-            .wrap(Wrap { trim: false })
-            .block(block)
+        Paragraph::new(text).wrap(Wrap { trim: false }).block(block)
     }
 }

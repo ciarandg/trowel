@@ -3,20 +3,17 @@ use std::{error::Error, ffi::OsStr, fs, io, path::{Path, PathBuf}, process::{Com
 use clap::{command, Parser};
 use model::trowel_diff::TrowelDiff;
 use ratatui::{
-    backend::Backend, crossterm::event::{self}, Terminal
+    backend::Backend, crossterm::event::{self}, Frame, Terminal
 };
 use state::app_state::{AppState, Lifecycle};
 use tempfile::NamedTempFile;
+use widget::app_view::AppView;
 
 mod state;
-mod ui;
 mod model;
 mod widget;
 
-use crate::{
-    ui::ui,
-    model::tf_plan::TfPlan,
-};
+use crate::model::tf_plan::TfPlan;
 
 #[derive(Parser, Debug)]
 #[command(version, about = "A TUI for working with OpenTofu and Terraform", long_about = None)]
@@ -140,4 +137,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Re
             },
         }
     }
+}
+
+pub fn ui(frame: &mut Frame, app: &mut AppState) {
+    let ui = AppView::new();
+    frame.render_stateful_widget(ui, frame.area(), app);
 }

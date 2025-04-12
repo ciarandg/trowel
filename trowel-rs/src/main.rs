@@ -23,6 +23,8 @@ use crate::{
 struct Args {
     #[arg(short, long)]
     plan_file: Option<PathBuf>,
+    #[arg(short, long, default_value = "tofu")]
+    binary: String,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -31,10 +33,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let plan_file = args.plan_file;
+    let binary = args.binary;
     let (diff, text_plan) = match plan_file {
-        Some(p) => generate_diff_from_plan(p),
+        Some(p) => generate_diff_from_plan(p, &binary),
         None => {
-            let (diff, plan) = generate_diff()?;
+            let (diff, plan) = generate_diff(&binary)?;
             Ok((diff, Some(plan)))
         }
     }?;
@@ -47,11 +50,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn generate_binary_plan() -> Result<NamedTempFile, io::Error> {
+fn generate_binary_plan(binary: &String) -> Result<NamedTempFile, io::Error> {
     let file = NamedTempFile::new()?;
     match file.path().to_str() {
         Some(p) => {
-            let mut cmd = Command::new("tofu")
+            let mut cmd = Command::new(binary)
                 .arg("plan")
                 .arg("-out")
                 .arg(p)
@@ -68,10 +71,10 @@ fn generate_binary_plan() -> Result<NamedTempFile, io::Error> {
 
 type TextPlan = String;
 
-fn generate_diff() -> Result<(TrowelDiff, TextPlan), io::Error> {
+fn generate_diff(binary: &String) -> Result<(TrowelDiff, TextPlan), io::Error> {
     // NOTE: NamedTempFile automatically deletes its tempfile when dropped via its destructor, and so should be dropped explicitly
-    let binary_tempfile = generate_binary_plan()?;
-    let (diff, plan) = generate_diff_binary(binary_tempfile.path().to_path_buf())?;
+    let binary_tempfile = generate_binary_plan(binary)?;
+    let (diff, plan) = generate_diff_binary(binary_tempfile.path().to_path_buf(), binary)?;
     drop(binary_tempfile);
     Ok((diff, plan))
 }
@@ -81,12 +84,12 @@ fn is_json_file(path: &Path) -> bool {
     matches!(extension, Some("json"))
 }
 
-fn generate_diff_from_plan(plan_file: PathBuf) -> Result<(TrowelDiff, Option<TextPlan>), io::Error> {
+fn generate_diff_from_plan(plan_file: PathBuf, binary: &String) -> Result<(TrowelDiff, Option<TextPlan>), io::Error> {
     if is_json_file(plan_file.as_path()) {
         let json_data = fs::read_to_string(&plan_file)?;
         Ok((generate_diff_json(json_data)?, None))
     } else {
-        let (diff, plan) = generate_diff_binary(plan_file)?;
+        let (diff, plan) = generate_diff_binary(plan_file, binary)?;
         Ok((diff, Some(plan)))
     }
 }
@@ -96,9 +99,9 @@ fn generate_diff_json(json_data: String) -> Result<TrowelDiff, io::Error> {
     TrowelDiff::from_tf_plan(&parsed)
 }
 
-fn generate_diff_binary(plan_file: PathBuf) -> Result<(TrowelDiff, TextPlan), io::Error> {
-    let text_plan = generate_text_plan(&plan_file)?;
-    let output = Command::new("tofu")
+fn generate_diff_binary(plan_file: PathBuf, binary: &String) -> Result<(TrowelDiff, TextPlan), io::Error> {
+    let text_plan = generate_text_plan(&plan_file, binary)?;
+    let output = Command::new(binary)
         .arg("show")
         .arg("-json")
         .arg(plan_file)
@@ -109,8 +112,8 @@ fn generate_diff_binary(plan_file: PathBuf) -> Result<(TrowelDiff, TextPlan), io
     }
 }
 
-fn generate_text_plan(binary_plan: &PathBuf) -> Result<TextPlan, io::Error> {
-    let output = Command::new("tofu")
+fn generate_text_plan(binary_plan: &PathBuf, binary: &String) -> Result<TextPlan, io::Error> {
+    let output = Command::new(binary)
         .arg("show")
         .arg("-no-color")
         .arg(binary_plan)

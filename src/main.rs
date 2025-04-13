@@ -119,7 +119,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Re
     }
 }
 
-pub fn ui(frame: &mut Frame, app: &mut AppState) {
+fn ui(frame: &mut Frame, app: &mut AppState) {
     let ui = AppView::new();
     frame.render_stateful_widget(ui, frame.area(), app);
 }

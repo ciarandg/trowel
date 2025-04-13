@@ -7,14 +7,14 @@ use std::{
 
 use clap::{Parser, command};
 use model::trowel_diff::TrowelDiff;
-use ratatui::{
-    Frame, Terminal,
-    backend::Backend,
-    crossterm::event::{self},
+use ratatui::{Frame, Terminal, backend::Backend, crossterm::event};
+use state::{
+    app_state::{AppState, Lifecycle},
+    planning_view_state::PlanningViewState,
 };
-use state::app_state::{AppState, Lifecycle};
 use tf_client::TfClient;
-use widget::app_view::AppView;
+use tokio::task::JoinHandle;
+use widget::{app_view::AppView, planning_view::PlanningView};
 
 mod model;
 mod state;
@@ -44,7 +44,8 @@ struct Args {
     hide_experimental_warning: bool,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     color_eyre::install()?;
 
     let args = Args::parse();
@@ -54,14 +55,24 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tf_client = TfClient::new(args.binary);
 
+    // Initialization is deferred to avoid delay between init and first paint
+    let mut terminal: Option<Terminal<_>> = None;
+
     let (binary_tempfile, plan_file) = match plan_file {
         Some(f) => (None, f),
         None => {
-            let tempfile = tf_client.plan()?;
+            let (mut planning_view_state, tx) = PlanningViewState::new();
+            let tf_client = tf_client.clone();
+            let handle = tokio::spawn(async move { tf_client.plan(tx).await });
+            let mut term = terminal.unwrap_or_else(ratatui::init);
+            run_app_preinit(&mut term, &mut planning_view_state, &handle).await?;
+            terminal = Some(term);
+            let tempfile = handle.await??;
             let plan = tempfile.path().to_path_buf();
             (Some(tempfile), plan)
         }
     };
+
     let diff = generate_diff(&tf_client, &plan_file)?;
     let text_plan = generate_text_plan(&tf_client, &plan_file)?;
     if let Some(tempfile) = binary_tempfile {
@@ -69,9 +80,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         drop(tempfile);
     };
 
-    let mut terminal = ratatui::init();
+    let mut terminal = terminal.unwrap_or_else(ratatui::init);
     let mut app = AppState::new(diff, text_plan, show_experimental_warning);
-    run_app(&mut terminal, &mut app)?;
+    run_app(&mut terminal, &mut app).await?;
     ratatui::restore();
 
     Ok(())
@@ -107,7 +118,29 @@ fn is_json_file(path: &Path) -> bool {
     matches!(extension, Some("json"))
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Result<()> {
+async fn run_app_preinit<B: Backend, T>(
+    terminal: &mut Terminal<B>,
+    planning_view_state: &mut PlanningViewState,
+    handle: &JoinHandle<T>,
+) -> io::Result<()> {
+    // Painting immediately prevents blank screen
+    terminal.draw(|f| ui_preinit(f, planning_view_state))?;
+
+    loop {
+        tokio::select! {
+            Some(()) = planning_view_state.next_line() => {
+                terminal.draw(|f| ui_preinit(f, planning_view_state))?;
+            }
+            else => {
+                if handle.is_finished() {
+                    return Ok(())
+                }
+            }
+        }
+    }
+}
+
+async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Result<()> {
     loop {
         match app.lifecycle {
             Lifecycle::Running => {
@@ -119,7 +152,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut AppState) -> io::Re
     }
 }
 
-fn ui(frame: &mut Frame, app: &mut AppState) {
+fn ui_preinit(frame: &mut Frame, state: &mut PlanningViewState) {
+    let ui = PlanningView::new();
+    frame.render_stateful_widget(ui, frame.area(), state);
+}
+
+fn ui(frame: &mut Frame, state: &mut AppState) {
     let ui = AppView::new();
-    frame.render_stateful_widget(ui, frame.area(), app);
+    frame.render_stateful_widget(ui, frame.area(), state);
 }

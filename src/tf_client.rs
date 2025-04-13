@@ -1,9 +1,13 @@
 use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 
 use tempfile::NamedTempFile;
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    sync::mpsc,
+};
 
+#[derive(Clone)]
 pub struct TfClient {
     binary: String,
 }
@@ -13,28 +17,32 @@ impl TfClient {
         Self { binary }
     }
 
-    pub fn plan(&self) -> Result<NamedTempFile, io::Error> {
-        let file = NamedTempFile::new()?;
-        match file.path().to_str() {
-            Some(p) => {
-                let mut cmd = Command::new(&self.binary)
-                    .arg("plan")
-                    .arg("-out")
-                    .arg(p)
-                    .stderr(Stdio::inherit())
-                    .spawn()?;
-                let _ = cmd.wait()?;
-                Ok(file)
-            }
-            None => Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "No string representation available for tempfile path",
-            )),
+    pub async fn plan(&self, tx: mpsc::Sender<String>) -> Result<NamedTempFile, io::Error> {
+        let tempfile = NamedTempFile::new()?;
+        let mut child = tokio::process::Command::new(&self.binary)
+            .arg("plan")
+            .arg("-no-color")
+            .arg("-out")
+            .arg(tempfile.path())
+            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .spawn()?;
+
+        let stdout = child.stdout.take().ok_or(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Failed to take stdout for plan process",
+        ))?;
+        let mut reader = BufReader::new(stdout).lines();
+
+        while let Some(line) = reader.next_line().await? {
+            tx.send(line).await.ok();
         }
+
+        Ok(tempfile)
     }
 
     pub fn show_as_json(&self, binary_plan_file: &PathBuf) -> Result<String, io::Error> {
-        let output = Command::new(&self.binary)
+        let output = std::process::Command::new(&self.binary)
             .arg("show")
             .arg("-json")
             .arg(binary_plan_file)
@@ -49,7 +57,7 @@ impl TfClient {
     }
 
     pub fn show_as_text(&self, binary_plan_file: &PathBuf) -> Result<String, io::Error> {
-        let output = Command::new(&self.binary)
+        let output = std::process::Command::new(&self.binary)
             .arg("show")
             .arg("-no-color")
             .arg(binary_plan_file)

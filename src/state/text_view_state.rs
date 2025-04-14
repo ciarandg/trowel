@@ -15,10 +15,22 @@ impl TextViewState {
     }
 
     pub fn process_keypress(&mut self, key: &KeyEvent) {
+        const PAGE_DOWN_LINES: u16 = 10;
+
         match key.code {
             // Basic navigation
             KeyCode::Char('j') => self.scroll_view_state.scroll_down(),
             KeyCode::Char('k') => self.scroll_view_state.scroll_up(),
+            KeyCode::Char('u') => {
+                for _ in 0..PAGE_DOWN_LINES {
+                    self.scroll_view_state.scroll_up();
+                }
+            }
+            KeyCode::Char('d') => {
+                for _ in 0..PAGE_DOWN_LINES {
+                    self.scroll_view_state.scroll_down();
+                }
+            }
             _ => (),
         }
     }

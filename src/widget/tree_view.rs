@@ -9,26 +9,40 @@ use tui_tree_widget::Tree;
 
 use crate::{model::trowel_diff::TrowelDiff, state::tree_view_state::TreeViewState};
 
+use super::error_view::ErrorView;
+
 pub struct TreeView {}
 
 impl StatefulWidget for TreeView {
     type State = TreeViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if let Ok(tree_items) = state.diff.to_tree_items() {
-            if let Ok(t) = Tree::new(&tree_items) {
-                let style = Style::new()
-                    .fg(Color::Black)
-                    .bg(Color::LightBlue)
-                    .add_modifier(Modifier::BOLD);
-                let tree = t
-                    .block(Self::wrapper_block(&state.diff))
-                    .experimental_scrollbar(Some(Self::scrollbar()))
-                    .highlight_style(style);
-                tree.render(area, buf, &mut state.tree_state);
-            };
-        }
-        // TODO error screen
+        match state.diff.to_tree_items() {
+            Ok(tree_items) => {
+                if let Ok(t) = Tree::new(&tree_items) {
+                    let style = Style::new()
+                        .fg(Color::Black)
+                        .bg(Color::LightBlue)
+                        .add_modifier(Modifier::BOLD);
+                    let tree = t
+                        .block(Self::wrapper_block(&state.diff))
+                        .experimental_scrollbar(Some(Self::scrollbar()))
+                        .highlight_style(style);
+                    tree.render(area, buf, &mut state.tree_state);
+                };
+            }
+            Err(_) => {
+                ratatui::widgets::Widget::render(
+                    ErrorView::new(
+                        "Failed to parse diff into tree items! This should not be possible."
+                            .to_string(),
+                        Color::Red,
+                    ),
+                    area,
+                    buf,
+                );
+            }
+        };
     }
 }
 

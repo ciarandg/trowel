@@ -8,6 +8,7 @@ use ratatui::{
 
 pub struct ErrorView {
     message: String,
+    color: Color,
 }
 
 impl Widget for ErrorView {
@@ -21,8 +22,8 @@ impl Widget for ErrorView {
 }
 
 impl ErrorView {
-    pub fn new(message: String) -> Self {
-        ErrorView { message }
+    pub fn new(message: String, color: Color) -> Self {
+        ErrorView { message, color }
     }
 
     fn title() -> Span<'static> {
@@ -44,10 +45,8 @@ impl ErrorView {
     fn render_popup(&self, area: Rect, buf: &mut Buffer) {
         let block = Block::bordered()
             .border_type(BorderType::Thick)
-            .style(Color::Yellow);
-        let style = Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD);
+            .style(self.color);
+        let style = Style::default().fg(self.color).add_modifier(Modifier::BOLD);
         let text: Vec<Line> = self
             .message
             .lines()

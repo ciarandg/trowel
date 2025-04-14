@@ -37,6 +37,7 @@ impl StatefulWidget for AppView {
                 Some(view) => self.text_view.render(area, buf, view),
                 None => ErrorView::new(
                     "No text plan available!\nYou are likely viewing a JSON plan.".to_string(),
+                    Color::Yellow,
                 )
                 .render(area, buf),
             },

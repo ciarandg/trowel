@@ -323,3 +323,54 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>
     v.sort();
     Ok(v)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_verb_uses_empty() {
+        let diff = TrowelDiff(vec![]);
+        let uses = diff.verb_uses();
+        assert_eq!(uses.len(), 0);
+    }
+
+    #[test]
+    fn test_verb_uses_one() {
+        let diff = TrowelDiff(vec![TrowelDiffEntry {
+            verb: Verb::Create,
+            resource_path: "foo".to_string(),
+            values: HashMap::new(),
+        }]);
+
+        let uses = diff.verb_uses();
+        assert_eq!(uses, [(Verb::Create, 1)].into_iter().collect())
+    }
+
+    #[test]
+    fn test_verb_uses_multiple() {
+        let diff = TrowelDiff(vec![
+            TrowelDiffEntry {
+                verb: Verb::Create,
+                resource_path: "foo".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Update,
+                resource_path: "bar".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Create,
+                resource_path: "baz".to_string(),
+                values: HashMap::new(),
+            },
+        ]);
+
+        let uses = diff.verb_uses();
+        assert_eq!(
+            uses,
+            [(Verb::Create, 2), (Verb::Update, 1)].into_iter().collect()
+        )
+    }
+}

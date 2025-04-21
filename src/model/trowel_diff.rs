@@ -56,6 +56,7 @@ impl TrowelDiff {
             let mut values = Vec::new();
             let mut unchanged: usize = 0;
 
+            // Assemble a vec of TreeItems containing all of the resource's attributes
             for (k, v) in e.values_sorted() {
                 if v.changed() {
                     values.push(TreeItem::new_leaf(
@@ -72,6 +73,7 @@ impl TrowelDiff {
                 }
             }
 
+            // Create placeholder TreeItem for unchanged attributes
             if unchanged > 0 {
                 values.push(TreeItem::new_leaf(
                     format!("{} unchanged", e.resource_path),
@@ -84,6 +86,7 @@ impl TrowelDiff {
                 ));
             }
 
+            // Create TreeItem for resource
             let item = TreeItem::new(
                 e.resource_path.clone(),
                 Line::from(vec![
@@ -143,7 +146,7 @@ impl TrowelDiff {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TrowelDiffEntry {
     pub verb: Verb,
     pub resource_path: String,
@@ -158,7 +161,7 @@ impl TrowelDiffEntry {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TrowelDiffEntryBeforeAfter {
     before: TrowelDiffEntryBefore,
     after: TrowelDiffEntryAfter,
@@ -227,7 +230,7 @@ impl TrowelDiffEntryBeforeAfter {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 enum TrowelDiffEntryBefore {
     Known(Value),
     Sensitive(Value),
@@ -238,21 +241,30 @@ enum TrowelDiffEntryBefore {
 type TrowelDiffEntryAfter = TrowelDiffEntryBefore;
 
 fn get_before_value(
-    resource_name: &String,
+    attribute_name: &String,
     change: &TfPlanResourceChangeChange,
 ) -> Result<TrowelDiffEntryBefore, io::Error> {
     let before_sensitive: Option<TrowelDiffEntryBefore> = change
         .process_before_sensitive()?
-        .and_then(|map| map.get(resource_name).cloned())
+        .and_then(|map| map.get(attribute_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
     let before: Option<TrowelDiffEntryBefore> = change
         .before
         .as_ref()
-        .and_then(|map| map.get(resource_name).cloned())
+        .and_then(|map| map.get(attribute_name).cloned())
         .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
 
     match before_sensitive {
-        Some(a) => Ok(a),
+        Some(a) => match before {
+            Some(_) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "Before value for attribute {} cannot be both sensitive and non-sensitive",
+                    attribute_name
+                ),
+            )),
+            None => Ok(a),
+        },
         None => match before {
             Some(b) => Ok(b),
             None => Ok(TrowelDiffEntryBefore::Absent),
@@ -261,27 +273,55 @@ fn get_before_value(
 }
 
 fn get_after_value(
-    resource_name: &String,
+    attribute_name: &String,
     change: &TfPlanResourceChangeChange,
 ) -> Result<TrowelDiffEntryAfter, io::Error> {
     let after_sensitive: Option<TrowelDiffEntryAfter> = change
         .process_after_sensitive()?
-        .and_then(|map| map.get(resource_name).cloned())
+        .and_then(|map| map.get(attribute_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
     let after: Option<TrowelDiffEntryAfter> = change
         .after
         .as_ref()
-        .and_then(|map| map.get(resource_name).cloned())
+        .and_then(|map| map.get(attribute_name).cloned())
         .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
     let after_unknown: Option<TrowelDiffEntryAfter> = change
         .after_unknown
-        .get(resource_name)
+        .get(attribute_name)
         .map(|_| TrowelDiffEntryAfter::Unknown);
 
     match after_sensitive {
-        Some(a) => Ok(a),
+        Some(a) => match after {
+            Some(_) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "After value for attribute {} cannot be both sensitive and non-sensitive",
+                    attribute_name
+                ),
+            )),
+            None => match after_unknown {
+                Some(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "After value for attribute {} cannot be both known and unknown",
+                        attribute_name
+                    ),
+                )),
+
+                None => Ok(a),
+            },
+        },
         None => match after {
-            Some(b) => Ok(b),
+            Some(b) => match after_unknown {
+                Some(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "After value for attribute {} cannot be both sensitive and unknown",
+                        attribute_name
+                    ),
+                )),
+                None => Ok(b),
+            },
             None => match after_unknown {
                 Some(c) => Ok(c),
                 None => Ok(TrowelDiffEntryAfter::Absent),
@@ -326,7 +366,212 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Map;
+
+    use crate::model::tf_plan::{
+        TfPlanConfiguration, TfPlanPlannedValues, TfPlanPlannedValuesRootModule, TfPlanPriorState,
+        TfPlanResourceChange,
+    };
+
     use super::*;
+
+    #[test]
+    fn test_from_tf_plan_empty() {
+        let plan = TfPlan {
+            format_version: "".to_string(),
+            terraform_version: "".to_string(),
+            planned_values: TfPlanPlannedValues {
+                root_module: TfPlanPlannedValuesRootModule {
+                    resources: vec![],
+                    child_modules: vec![],
+                },
+            },
+            resource_changes: vec![],
+            prior_state: TfPlanPriorState {
+                format_version: "".to_string(),
+                terraform_version: "".to_string(),
+                values: TfPlanPlannedValues {
+                    root_module: TfPlanPlannedValuesRootModule {
+                        resources: vec![],
+                        child_modules: vec![],
+                    },
+                },
+            },
+            configuration: TfPlanConfiguration {
+                provider_config: HashMap::new(),
+                root_module: Value::Null,
+            },
+            relevant_attributes: vec![],
+            checks: vec![],
+            timestamp: "".to_string(),
+            errored: false,
+        };
+        let diff = TrowelDiff::from_tf_plan(&plan);
+        assert_eq!(diff.unwrap().0.len(), 0)
+    }
+
+    #[test]
+    fn test_from_tf_plan_resource_change() {
+        let plan = TfPlan {
+            format_version: "".to_string(),
+            terraform_version: "".to_string(),
+            planned_values: TfPlanPlannedValues {
+                root_module: TfPlanPlannedValuesRootModule {
+                    resources: vec![],
+                    child_modules: vec![],
+                },
+            },
+            resource_changes: vec![TfPlanResourceChange {
+                address: "apple".to_string(),
+                mode: "orange".to_string(),
+                resource_type: "banana".to_string(),
+                name: "mango".to_string(),
+                provider_name: "guava".to_string(),
+                change: TfPlanResourceChangeChange {
+                    actions: vec!["create".to_string()],
+                    before: None,
+                    after: None,
+                    after_unknown: HashMap::new(),
+                    before_sensitive: Value::Bool(false),
+                    after_sensitive: Value::Bool(false),
+                    replace_paths: None,
+                },
+                action_reason: None,
+                module_address: None,
+            }],
+            prior_state: TfPlanPriorState {
+                format_version: "".to_string(),
+                terraform_version: "".to_string(),
+                values: TfPlanPlannedValues {
+                    root_module: TfPlanPlannedValuesRootModule {
+                        resources: vec![],
+                        child_modules: vec![],
+                    },
+                },
+            },
+            configuration: TfPlanConfiguration {
+                provider_config: HashMap::new(),
+                root_module: Value::Null,
+            },
+            relevant_attributes: vec![],
+            checks: vec![],
+            timestamp: "".to_string(),
+            errored: false,
+        };
+        let diff = TrowelDiff::from_tf_plan(&plan);
+        assert_eq!(diff.as_ref().unwrap().0.len(), 1);
+        assert_eq!(
+            diff.as_ref().unwrap().0[0],
+            TrowelDiffEntry {
+                verb: Verb::Create,
+                resource_path: "apple".to_string(),
+                values: HashMap::new()
+            }
+        )
+    }
+
+    #[test]
+    fn test_to_tree_items_empty() {
+        let diff = TrowelDiff(vec![]);
+        let tree_items = diff.to_tree_items();
+        assert_eq!(tree_items.unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_to_tree_items_one_empty() {
+        let diff = TrowelDiff(vec![TrowelDiffEntry {
+            verb: Verb::Create,
+            resource_path: "apple".to_string(),
+            values: HashMap::new(),
+        }]);
+        let tree_items = diff.to_tree_items().unwrap();
+        assert_eq!(tree_items.len(), 1);
+        let item = &tree_items[0];
+        assert_eq!(item.identifier(), "apple");
+        assert_eq!(item.children().len(), 0);
+    }
+
+    #[test]
+    fn test_to_tree_items_one_empty_nonempty() {
+        let diff = TrowelDiff(vec![TrowelDiffEntry {
+            verb: Verb::Create,
+            resource_path: "apple".to_string(),
+            values: HashMap::from([
+                (
+                    "c".to_string(),
+                    TrowelDiffEntryBeforeAfter {
+                        before: TrowelDiffEntryBefore::Known(Value::String("old".to_string())),
+                        after: TrowelDiffEntryBefore::Known(Value::String("new".to_string())),
+                    },
+                ),
+                (
+                    "b".to_string(),
+                    TrowelDiffEntryBeforeAfter {
+                        before: TrowelDiffEntryBefore::Known(Value::String("old".to_string())),
+                        after: TrowelDiffEntryBefore::Known(Value::String("old".to_string())),
+                    },
+                ),
+                (
+                    "d".to_string(),
+                    TrowelDiffEntryBeforeAfter {
+                        before: TrowelDiffEntryBefore::Sensitive(Value::String("old".to_string())),
+                        after: TrowelDiffEntryBefore::Sensitive(Value::String("old".to_string())),
+                    },
+                ),
+                (
+                    "e".to_string(),
+                    TrowelDiffEntryBeforeAfter {
+                        before: TrowelDiffEntryBefore::Sensitive(Value::String("old".to_string())),
+                        after: TrowelDiffEntryBefore::Sensitive(Value::String("new".to_string())),
+                    },
+                ),
+                (
+                    "a".to_string(),
+                    TrowelDiffEntryBeforeAfter {
+                        before: TrowelDiffEntryBefore::Unknown,
+                        after: TrowelDiffEntryBefore::Unknown,
+                    },
+                ),
+            ]),
+        }]);
+        let tree_items = diff.to_tree_items().unwrap();
+        assert_eq!(tree_items.len(), 1);
+        let item = &tree_items[0];
+        assert_eq!(item.identifier(), "apple");
+        assert_eq!(item.children().len(), 4);
+
+        // Resource attributes are alphabetized, with unchanged at the end
+        let value_identifiers: Vec<_> = item.children().iter().map(|i| i.identifier()).collect();
+        assert_eq!(
+            value_identifiers,
+            vec!["apple a", "apple c", "apple e", "apple unchanged"]
+        );
+    }
+
+    #[test]
+    fn test_to_tree_items_multiple_empty() {
+        let diff = TrowelDiff(vec![
+            TrowelDiffEntry {
+                verb: Verb::Create,
+                resource_path: "orange".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Update,
+                resource_path: "banana".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Destroy,
+                resource_path: "apple".to_string(),
+                values: HashMap::new(),
+            },
+        ]);
+        let tree_items = diff.to_tree_items().unwrap();
+        assert_eq!(tree_items.len(), 3);
+        let identifiers: Vec<_> = tree_items.iter().map(|i| i.identifier()).collect();
+        assert_eq!(identifiers, vec!["orange", "banana", "apple"]) // Does not alphabetize resources
+    }
 
     #[test]
     fn test_verb_uses_empty() {
@@ -372,5 +617,207 @@ mod tests {
             uses,
             [(Verb::Create, 2), (Verb::Update, 1)].into_iter().collect()
         )
+    }
+
+    #[test]
+    fn test_verb_uses_fmt_empty() {
+        let diff = TrowelDiff(vec![]);
+        let uses = diff.verb_uses_fmt();
+        assert_eq!(uses, Line::from(vec![]));
+    }
+
+    #[test]
+    fn test_verb_uses_fmt_one() {
+        let diff = TrowelDiff(vec![TrowelDiffEntry {
+            verb: Verb::Create,
+            resource_path: "foo".to_string(),
+            values: HashMap::new(),
+        }]);
+        let uses = diff.verb_uses_fmt();
+        assert_eq!(
+            uses,
+            Line::from(vec![
+                Span::from(" "),
+                Span::styled(
+                    "create 1",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD)
+                ),
+                Span::from(" "),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_verb_uses_fmt_multiple() {
+        let diff = TrowelDiff(vec![
+            TrowelDiffEntry {
+                verb: Verb::Destroy,
+                resource_path: "apple".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Update,
+                resource_path: "banana".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Create,
+                resource_path: "orange".to_string(),
+                values: HashMap::new(),
+            },
+            TrowelDiffEntry {
+                verb: Verb::Destroy,
+                resource_path: "mango".to_string(),
+                values: HashMap::new(),
+            },
+        ]);
+        let uses = diff.verb_uses_fmt();
+        // Entries will be sorted by the numeric value of each Verb
+        assert_eq!(
+            uses,
+            Line::from(vec![
+                Span::from(" "),
+                Span::styled(
+                    "create 1",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD)
+                ),
+                Span::from(" | "),
+                Span::styled(
+                    "destroy 2",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                ),
+                Span::from(" | "),
+                Span::styled(
+                    "update 1",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD)
+                ),
+                Span::from(" "),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_get_before_value() {
+        let mut before_sensitive = Map::new();
+        before_sensitive.insert("pineapple".to_string(), Value::String("papaya".to_string()));
+
+        let change = TfPlanResourceChangeChange {
+            actions: vec![],
+            before: Some(HashMap::from([
+                ("banana".to_string(), Value::String("mango".to_string())),
+                ("apple".to_string(), Value::String("orange".to_string())),
+            ])),
+            after: None,
+            after_unknown: HashMap::new(),
+            before_sensitive: Value::Object(before_sensitive),
+            after_sensitive: Value::Bool(false),
+            replace_paths: None,
+        };
+
+        assert_eq!(
+            get_before_value(&"apple".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Known(Value::String("orange".to_string()))
+        );
+        assert_eq!(
+            get_before_value(&"pineapple".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Sensitive(Value::String("papaya".to_string()))
+        );
+        assert_eq!(
+            get_before_value(&"guava".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Absent
+        );
+    }
+
+    #[test]
+    fn test_get_before_value_err() {
+        let mut before_sensitive = Map::new();
+        before_sensitive.insert("apple".to_string(), Value::String("banana".to_string()));
+
+        let change = TfPlanResourceChangeChange {
+            actions: vec![],
+            before: Some(HashMap::from([(
+                "apple".to_string(),
+                Value::String("pear".to_string()),
+            )])),
+            after: None,
+            after_unknown: HashMap::new(),
+            before_sensitive: Value::Object(before_sensitive),
+            after_sensitive: Value::Bool(false),
+            replace_paths: None,
+        };
+
+        assert!(get_before_value(&"apple".to_string(), &change).is_err());
+    }
+
+    #[test]
+    fn test_get_after_value() {
+        let mut after_sensitive = Map::new();
+        after_sensitive.insert("pineapple".to_string(), Value::String("papaya".to_string()));
+
+        let change = TfPlanResourceChangeChange {
+            actions: vec![],
+            before: None,
+            after: Some(HashMap::from([
+                ("banana".to_string(), Value::String("mango".to_string())),
+                ("apple".to_string(), Value::String("orange".to_string())),
+            ])),
+            after_unknown: HashMap::from([(
+                "dragonfruit".to_string(),
+                Value::String("pear".to_string()),
+            )]),
+            before_sensitive: Value::Bool(false),
+            after_sensitive: Value::Object(after_sensitive),
+            replace_paths: None,
+        };
+
+        assert_eq!(
+            get_after_value(&"apple".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Known(Value::String("orange".to_string()))
+        );
+        assert_eq!(
+            get_after_value(&"pineapple".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Sensitive(Value::String("papaya".to_string()))
+        );
+        assert_eq!(
+            get_after_value(&"guava".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Absent
+        );
+        assert_eq!(
+            get_after_value(&"dragonfruit".to_string(), &change).unwrap(),
+            TrowelDiffEntryBefore::Unknown
+        );
+    }
+
+    #[test]
+    fn test_get_after_value_err() {
+        let mut after_sensitive = Map::new();
+        after_sensitive.insert("apple".to_string(), Value::String("banana".to_string()));
+        after_sensitive.insert("guava".to_string(), Value::String("mango".to_string()));
+
+        let change = TfPlanResourceChangeChange {
+            actions: vec![],
+            before: None,
+            after: Some(HashMap::from([
+                ("apple".to_string(), Value::String("pear".to_string())),
+                ("orange".to_string(), Value::String("papaya".to_string())),
+            ])),
+            after_unknown: HashMap::from([
+                ("orange".to_string(), Value::String("pineapple".to_string())),
+                ("guava".to_string(), Value::String("lychee".to_string())),
+            ]),
+            before_sensitive: Value::Bool(false),
+            after_sensitive: Value::Object(after_sensitive),
+            replace_paths: None,
+        };
+
+        assert!(get_after_value(&"apple".to_string(), &change).is_err());
+        assert!(get_after_value(&"orange".to_string(), &change).is_err());
+        assert!(get_after_value(&"guava".to_string(), &change).is_err());
     }
 }

@@ -1,10 +1,11 @@
+#![allow(dead_code)] // Lots of unused properties that I still want to strictly require since they're part of the TF spec
+
 use std::collections::HashMap;
-use std::io;
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde::Deserialize;
+use serde_json::{Map, Value};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlan {
     pub format_version: String,
@@ -19,20 +20,20 @@ pub struct TfPlan {
     pub errored: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPlannedValues {
     pub root_module: TfPlanPlannedValuesRootModule,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPlannedValuesRootModule {
     pub resources: Vec<TfPlanPlannedValuesModuleResource>,
     pub child_modules: Vec<TfPlanPlannedValuesChildModule>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPlannedValuesModuleResource {
     pub address: String,
@@ -47,7 +48,7 @@ pub struct TfPlanPlannedValuesModuleResource {
     pub depends_on: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPlannedValuesChildModule {
     pub address: String,
@@ -55,7 +56,7 @@ pub struct TfPlanPlannedValuesChildModule {
     pub child_modules: Option<Vec<TfPlanPlannedValuesChildModule>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanResourceChange {
     pub address: String,
@@ -69,58 +70,70 @@ pub struct TfPlanResourceChange {
     pub module_address: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanResourceChangeChange {
     pub actions: Vec<String>,
     pub before: Option<HashMap<String, Value>>,
     pub after: Option<HashMap<String, Value>>,
     pub after_unknown: HashMap<String, Value>,
-    pub before_sensitive: Value, // TODO this is really Either<HashMap<String, Value>, false>
-    pub after_sensitive: Value,  // TODO this is really Either<HashMap<String, Value>, false>
+    pub before_sensitive: SensitiveValues,
+    pub after_sensitive: SensitiveValues,
     pub replace_paths: Option<Vec<Vec<String>>>,
 }
 
-type SensitiveValues = Option<HashMap<String, Value>>;
+pub type SensitiveValuesInner = Option<HashMap<String, Value>>;
+pub struct SensitiveValues(SensitiveValuesInner);
 
-impl TfPlanResourceChangeChange {
-    pub fn process_before_sensitive(&self) -> Result<SensitiveValues, io::Error> {
-        process_sensitive_values(&self.before_sensitive)
+impl SensitiveValues {
+    pub fn new(inner: SensitiveValuesInner) -> Self {
+        Self(inner)
     }
 
-    pub fn process_after_sensitive(&self) -> Result<SensitiveValues, io::Error> {
-        process_sensitive_values(&self.after_sensitive)
-    }
-}
-
-// TODO make a proper deserializer for this
-fn process_sensitive_values(v: &Value) -> Result<SensitiveValues, io::Error> {
-    match v {
-        Value::Bool(b) => {
-            if *b {
-                Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Sensitive values can be boolean, but should always be false if so",
-                ))
-            } else {
-                Ok(None)
-            }
-        }
-        Value::Object(map) => {
-            let mut result = HashMap::new();
-            for (key, value) in map.iter() {
-                result.insert(key.clone(), value.clone());
-            }
-            Ok(Some(result))
-        }
-        _ => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Sensitive values should either be a false boolean or a dictionary",
-        )),
+    pub fn inner(&self) -> &SensitiveValuesInner {
+        &self.0
     }
 }
 
-#[derive(Serialize, Deserialize)]
+impl<'de> Deserialize<'de> for SensitiveValues {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct SensitiveValuesVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for SensitiveValuesVisitor {
+            type Value = SensitiveValues;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("False or a map")
+            }
+
+            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                if v == false {
+                    Ok(SensitiveValues(None))
+                } else {
+                    Err(E::custom("Expected false or a map"))
+                }
+            }
+
+            fn visit_map<A>(self, visitor: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::MapAccess<'de>,
+            {
+                let map = Map::deserialize(serde::de::value::MapAccessDeserializer::new(visitor))?;
+                Ok(SensitiveValues(Some(map.into_iter().collect())))
+            }
+        }
+
+        deserializer.deserialize_any(SensitiveValuesVisitor)
+    }
+}
+
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPriorState {
     pub format_version: String,
@@ -130,14 +143,14 @@ pub struct TfPlanPriorState {
 
 type TfPlanPriorStateValues = TfPlanPlannedValues;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanConfiguration {
     pub provider_config: HashMap<String, TfPlanConfigurationProviderConfig>,
     pub root_module: Value,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanConfigurationProviderConfig {
     pub name: String,
@@ -147,21 +160,21 @@ pub struct TfPlanConfigurationProviderConfig {
     pub module_address: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanConfigurationRootModule {
     pub resources: Vec<Value>,                // TODO
     pub module_calls: HashMap<String, Value>, // TODO
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanRelevantAttribute {
     pub resource: String,
     pub attribute: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanCheck {
     pub address: TfPlanCheckAddress,
@@ -169,7 +182,7 @@ pub struct TfPlanCheck {
     pub instances: Vec<TfPlanCheckInstance>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanCheckAddress {
     pub kind: String,
@@ -178,14 +191,14 @@ pub struct TfPlanCheckAddress {
     pub to_display: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanCheckInstance {
     pub address: TfPlanCheckInstanceAddress,
     pub status: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanCheckInstanceAddress {
     pub module: String,

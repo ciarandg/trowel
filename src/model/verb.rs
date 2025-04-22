@@ -80,9 +80,7 @@ impl Verb {
 mod tests {
     use std::collections::HashMap;
 
-    use serde_json::Value;
-
-    use crate::model::tf_plan::TfPlanResourceChangeChange;
+    use crate::model::tf_plan::{SensitiveValues, TfPlanResourceChangeChange};
 
     use super::*;
 
@@ -99,8 +97,8 @@ mod tests {
                 before: None,
                 after: None,
                 after_unknown: HashMap::new(),
-                before_sensitive: Value::Bool(false),
-                after_sensitive: Value::Bool(false),
+                before_sensitive: SensitiveValues::new(None),
+                after_sensitive: SensitiveValues::new(None),
                 replace_paths: None,
             },
             action_reason: None,

@@ -245,8 +245,11 @@ fn get_before_value(
     change: &TfPlanResourceChangeChange,
 ) -> Result<TrowelDiffEntryBefore, io::Error> {
     let before_sensitive: Option<TrowelDiffEntryBefore> = change
-        .process_before_sensitive()?
-        .and_then(|map| map.get(attribute_name).cloned())
+        .before_sensitive
+        .inner()
+        .clone()
+        .map(|m| m.get(attribute_name).cloned())
+        .flatten()
         .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
     let before: Option<TrowelDiffEntryBefore> = change
         .before
@@ -277,8 +280,11 @@ fn get_after_value(
     change: &TfPlanResourceChangeChange,
 ) -> Result<TrowelDiffEntryAfter, io::Error> {
     let after_sensitive: Option<TrowelDiffEntryAfter> = change
-        .process_after_sensitive()?
-        .and_then(|map| map.get(attribute_name).cloned())
+        .after_sensitive
+        .inner()
+        .clone()
+        .map(|m| m.get(attribute_name).cloned())
+        .flatten()
         .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
     let after: Option<TrowelDiffEntryAfter> = change
         .after
@@ -346,14 +352,12 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>
     for k in change.after_unknown.keys() {
         names.insert(k.to_string());
     }
-    let before_sensitive = &change.process_before_sensitive()?;
-    if let Some(map) = before_sensitive {
+    if let Some(map) = change.before_sensitive.inner() {
         for k in map.keys() {
             names.insert(k.to_string());
         }
     }
-    let after_sensitive = &change.process_after_sensitive()?;
-    if let Some(map) = after_sensitive {
+    if let Some(map) = change.after_sensitive.inner() {
         for k in map.keys() {
             names.insert(k.to_string());
         }
@@ -366,11 +370,9 @@ fn all_resource_names(change: &TfPlanResourceChangeChange) -> Result<Vec<String>
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Map;
-
     use crate::model::tf_plan::{
-        TfPlanConfiguration, TfPlanPlannedValues, TfPlanPlannedValuesRootModule, TfPlanPriorState,
-        TfPlanResourceChange,
+        SensitiveValues, TfPlanConfiguration, TfPlanPlannedValues, TfPlanPlannedValuesRootModule,
+        TfPlanPriorState, TfPlanResourceChange,
     };
 
     use super::*;
@@ -432,8 +434,8 @@ mod tests {
                     before: None,
                     after: None,
                     after_unknown: HashMap::new(),
-                    before_sensitive: Value::Bool(false),
-                    after_sensitive: Value::Bool(false),
+                    before_sensitive: SensitiveValues::new(None),
+                    after_sensitive: SensitiveValues::new(None),
                     replace_paths: None,
                 },
                 action_reason: None,
@@ -704,9 +706,6 @@ mod tests {
 
     #[test]
     fn test_get_before_value() {
-        let mut before_sensitive = Map::new();
-        before_sensitive.insert("pineapple".to_string(), Value::String("papaya".to_string()));
-
         let change = TfPlanResourceChangeChange {
             actions: vec![],
             before: Some(HashMap::from([
@@ -715,8 +714,11 @@ mod tests {
             ])),
             after: None,
             after_unknown: HashMap::new(),
-            before_sensitive: Value::Object(before_sensitive),
-            after_sensitive: Value::Bool(false),
+            before_sensitive: SensitiveValues::new(Some(HashMap::from([(
+                "pineapple".to_string(),
+                Value::String("papaya".to_string()),
+            )]))),
+            after_sensitive: SensitiveValues::new(None),
             replace_paths: None,
         };
 
@@ -736,9 +738,6 @@ mod tests {
 
     #[test]
     fn test_get_before_value_err() {
-        let mut before_sensitive = Map::new();
-        before_sensitive.insert("apple".to_string(), Value::String("banana".to_string()));
-
         let change = TfPlanResourceChangeChange {
             actions: vec![],
             before: Some(HashMap::from([(
@@ -747,8 +746,11 @@ mod tests {
             )])),
             after: None,
             after_unknown: HashMap::new(),
-            before_sensitive: Value::Object(before_sensitive),
-            after_sensitive: Value::Bool(false),
+            before_sensitive: SensitiveValues::new(Some(HashMap::from([(
+                "apple".to_string(),
+                Value::String("banana".to_string()),
+            )]))),
+            after_sensitive: SensitiveValues::new(None),
             replace_paths: None,
         };
 
@@ -757,9 +759,6 @@ mod tests {
 
     #[test]
     fn test_get_after_value() {
-        let mut after_sensitive = Map::new();
-        after_sensitive.insert("pineapple".to_string(), Value::String("papaya".to_string()));
-
         let change = TfPlanResourceChangeChange {
             actions: vec![],
             before: None,
@@ -771,8 +770,11 @@ mod tests {
                 "dragonfruit".to_string(),
                 Value::String("pear".to_string()),
             )]),
-            before_sensitive: Value::Bool(false),
-            after_sensitive: Value::Object(after_sensitive),
+            before_sensitive: SensitiveValues::new(None),
+            after_sensitive: SensitiveValues::new(Some(HashMap::from([(
+                "pineapple".to_string(),
+                Value::String("papaya".to_string()),
+            )]))),
             replace_paths: None,
         };
 
@@ -796,10 +798,6 @@ mod tests {
 
     #[test]
     fn test_get_after_value_err() {
-        let mut after_sensitive = Map::new();
-        after_sensitive.insert("apple".to_string(), Value::String("banana".to_string()));
-        after_sensitive.insert("guava".to_string(), Value::String("mango".to_string()));
-
         let change = TfPlanResourceChangeChange {
             actions: vec![],
             before: None,
@@ -811,8 +809,11 @@ mod tests {
                 ("orange".to_string(), Value::String("pineapple".to_string())),
                 ("guava".to_string(), Value::String("lychee".to_string())),
             ]),
-            before_sensitive: Value::Bool(false),
-            after_sensitive: Value::Object(after_sensitive),
+            before_sensitive: SensitiveValues::new(None),
+            after_sensitive: SensitiveValues::new(Some(HashMap::from([
+                ("apple".to_string(), Value::String("banana".to_string())),
+                ("guava".to_string(), Value::String("mango".to_string())),
+            ]))),
             replace_paths: None,
         };
 

@@ -75,3 +75,62 @@ impl Verb {
         self.name().to_lowercase()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use serde_json::Value;
+
+    use crate::model::tf_plan::TfPlanResourceChangeChange;
+
+    use super::*;
+
+    #[test]
+    fn test_from_resource_ignore() {
+        let mut actions = TfPlanResourceChange {
+            address: "".to_string(),
+            mode: "".to_string(),
+            resource_type: "".to_string(),
+            name: "".to_string(),
+            provider_name: "".to_string(),
+            change: TfPlanResourceChangeChange {
+                actions: vec![],
+                before: None,
+                after: None,
+                after_unknown: HashMap::new(),
+                before_sensitive: Value::Bool(false),
+                after_sensitive: Value::Bool(false),
+                replace_paths: None,
+            },
+            action_reason: None,
+            module_address: None,
+        };
+
+        assert!(Verb::from_resource(&actions).is_err());
+        actions.change.actions = vec!["foo".to_string()];
+        assert!(Verb::from_resource(&actions).is_err());
+        actions.change.actions = vec!["create".to_string(), "foo".to_string()];
+        assert!(Verb::from_resource(&actions).is_err());
+
+        actions.change.actions = vec!["no-op".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Ignore);
+
+        actions.change.actions = vec!["create".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Create);
+
+        actions.change.actions = vec!["update".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Update);
+
+        actions.change.actions = vec!["delete".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Destroy);
+
+        actions.change.actions = vec!["create".to_string(), "delete".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Replace);
+        actions.change.actions = vec!["delete".to_string(), "create".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Replace);
+
+        actions.change.actions = vec!["read".to_string()];
+        assert_eq!(Verb::from_resource(&actions).unwrap(), Verb::Read);
+    }
+}

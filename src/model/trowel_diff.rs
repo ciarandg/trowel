@@ -244,32 +244,32 @@ fn get_before_value(
     attribute_name: &String,
     change: &TfPlanResourceChangeChange,
 ) -> Result<TrowelDiffEntryBefore, io::Error> {
-    let before_sensitive: Option<TrowelDiffEntryBefore> = change
+    let before_sensitive: Option<Value> = change
         .before_sensitive
         .inner()
         .clone()
         .map(|m| m.get(attribute_name).cloned())
         .flatten()
-        .map(|v| TrowelDiffEntryBefore::Sensitive(v.clone()));
-    let before: Option<TrowelDiffEntryBefore> = change
+        .map(|v| v.clone());
+    let before: Option<Value> = change
         .before
         .as_ref()
         .and_then(|map| map.get(attribute_name).cloned())
-        .map(|v| TrowelDiffEntryBefore::Known(v.clone()));
+        .map(|v| v.clone());
 
     match before_sensitive {
-        Some(a) => match before {
-            Some(_) => Err(io::Error::new(
+        Some(_) => match before {
+            Some(b) => Ok(TrowelDiffEntryBefore::Sensitive(b)),
+            None => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!(
-                    "Before value for attribute {} cannot be both sensitive and non-sensitive",
+                    "Before value for attribute {} is in before_sensitive but missing from before",
                     attribute_name
                 ),
             )),
-            None => Ok(a),
         },
         None => match before {
-            Some(b) => Ok(b),
+            Some(b) => Ok(TrowelDiffEntryBefore::Known(b)),
             None => Ok(TrowelDiffEntryBefore::Absent),
         },
     }
@@ -279,58 +279,39 @@ fn get_after_value(
     attribute_name: &String,
     change: &TfPlanResourceChangeChange,
 ) -> Result<TrowelDiffEntryAfter, io::Error> {
-    let after_sensitive: Option<TrowelDiffEntryAfter> = change
+    let after_sensitive: Option<Value> = change
         .after_sensitive
         .inner()
         .clone()
         .map(|m| m.get(attribute_name).cloned())
         .flatten()
-        .map(|v| TrowelDiffEntryAfter::Sensitive(v.clone()));
-    let after: Option<TrowelDiffEntryAfter> = change
+        .map(|v| v.clone());
+    let after: Option<Value> = change
         .after
         .as_ref()
         .and_then(|map| map.get(attribute_name).cloned())
-        .map(|v| TrowelDiffEntryAfter::Known(v.clone()));
+        .map(|v| v.clone());
     let after_unknown: Option<TrowelDiffEntryAfter> = change
         .after_unknown
         .get(attribute_name)
         .map(|_| TrowelDiffEntryAfter::Unknown);
 
-    match after_sensitive {
-        Some(a) => match after {
-            Some(_) => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "After value for attribute {} cannot be both sensitive and non-sensitive",
-                    attribute_name
-                ),
-            )),
-            None => match after_unknown {
-                Some(_) => Err(io::Error::new(
+    match after_unknown {
+        Some(a) => Ok(a),
+        None => match after_sensitive {
+            Some(_) => match after {
+                Some(c) => Ok(TrowelDiffEntryAfter::Sensitive(c)),
+                None => Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!(
-                        "After value for attribute {} cannot be both known and unknown",
+                        "After value for attribute {} is in after_sensitive but missing from after",
                         attribute_name
                     ),
                 )),
-
-                None => Ok(a),
             },
-        },
-        None => match after {
-            Some(b) => match after_unknown {
-                Some(_) => Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!(
-                        "After value for attribute {} cannot be both sensitive and unknown",
-                        attribute_name
-                    ),
-                )),
-                None => Ok(b),
-            },
-            None => match after_unknown {
-                Some(c) => Ok(c),
-                None => Ok(TrowelDiffEntryAfter::Absent),
+            None => match after {
+                Some(c) => Ok(TrowelDiffEntryAfter::Known(c)),
+                None => Ok(TrowelDiffEntryBefore::Absent),
             },
         },
     }
@@ -711,12 +692,13 @@ mod tests {
             before: Some(HashMap::from([
                 ("banana".to_string(), Value::String("mango".to_string())),
                 ("apple".to_string(), Value::String("orange".to_string())),
+                ("pineapple".to_string(), Value::String("papaya".to_string())),
             ])),
             after: None,
             after_unknown: HashMap::new(),
             before_sensitive: SensitiveValues::new(Some(HashMap::from([(
                 "pineapple".to_string(),
-                Value::String("papaya".to_string()),
+                Value::Bool(true),
             )]))),
             after_sensitive: SensitiveValues::new(None),
             replace_paths: None,
@@ -740,10 +722,7 @@ mod tests {
     fn test_get_before_value_err() {
         let change = TfPlanResourceChangeChange {
             actions: vec![],
-            before: Some(HashMap::from([(
-                "apple".to_string(),
-                Value::String("pear".to_string()),
-            )])),
+            before: Some(HashMap::new()),
             after: None,
             after_unknown: HashMap::new(),
             before_sensitive: SensitiveValues::new(Some(HashMap::from([(
@@ -754,7 +733,7 @@ mod tests {
             replace_paths: None,
         };
 
-        assert!(get_before_value(&"apple".to_string(), &change).is_err());
+        assert!(get_before_value(&"apple".to_string(), &change).is_err()); // present in before_sensitive but missing in before
     }
 
     #[test]
@@ -765,6 +744,7 @@ mod tests {
             after: Some(HashMap::from([
                 ("banana".to_string(), Value::String("mango".to_string())),
                 ("apple".to_string(), Value::String("orange".to_string())),
+                ("pineapple".to_string(), Value::String("papaya".to_string())),
             ])),
             after_unknown: HashMap::from([(
                 "dragonfruit".to_string(),
@@ -773,7 +753,7 @@ mod tests {
             before_sensitive: SensitiveValues::new(None),
             after_sensitive: SensitiveValues::new(Some(HashMap::from([(
                 "pineapple".to_string(),
-                Value::String("papaya".to_string()),
+                Value::Bool(true),
             )]))),
             replace_paths: None,
         };
@@ -801,24 +781,16 @@ mod tests {
         let change = TfPlanResourceChangeChange {
             actions: vec![],
             before: None,
-            after: Some(HashMap::from([
-                ("apple".to_string(), Value::String("pear".to_string())),
-                ("orange".to_string(), Value::String("papaya".to_string())),
-            ])),
-            after_unknown: HashMap::from([
-                ("orange".to_string(), Value::String("pineapple".to_string())),
-                ("guava".to_string(), Value::String("lychee".to_string())),
-            ]),
+            after: Some(HashMap::new()),
+            after_unknown: HashMap::new(),
             before_sensitive: SensitiveValues::new(None),
-            after_sensitive: SensitiveValues::new(Some(HashMap::from([
-                ("apple".to_string(), Value::String("banana".to_string())),
-                ("guava".to_string(), Value::String("mango".to_string())),
-            ]))),
+            after_sensitive: SensitiveValues::new(Some(HashMap::from([(
+                "apple".to_string(),
+                Value::String("banana".to_string()),
+            )]))),
             replace_paths: None,
         };
 
-        assert!(get_after_value(&"apple".to_string(), &change).is_err());
-        assert!(get_after_value(&"orange".to_string(), &change).is_err());
-        assert!(get_after_value(&"guava".to_string(), &change).is_err());
+        assert!(get_after_value(&"apple".to_string(), &change).is_err()); // present in after_sensitive but missing in after
     }
 }

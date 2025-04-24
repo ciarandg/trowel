@@ -21,28 +21,30 @@ impl TrowelDiff {
     pub fn from_tf_plan(plan: &TfPlan) -> Result<TrowelDiff, io::Error> {
         let mut out = TrowelDiff(Vec::new());
 
-        for rc in &plan.resource_changes {
-            let verb: Verb = Verb::from_resource(rc)?;
+        if let Some(changes) = plan.resource_changes.as_ref() {
+            for rc in changes {
+                let verb: Verb = Verb::from_resource(rc)?;
 
-            if verb != Verb::Ignore {
-                let mut values = HashMap::new();
-                let resource_names = all_resource_names(&rc.change)?;
+                if verb != Verb::Ignore {
+                    let mut values = HashMap::new();
+                    let resource_names = all_resource_names(&rc.change)?;
 
-                for n in resource_names {
-                    values.insert(
-                        n.clone(),
-                        TrowelDiffEntryBeforeAfter {
-                            before: get_before_value(&n, &rc.change)?,
-                            after: get_after_value(&n, &rc.change)?,
-                        },
-                    );
+                    for n in resource_names {
+                        values.insert(
+                            n.clone(),
+                            TrowelDiffEntryBeforeAfter {
+                                before: get_before_value(&n, &rc.change)?,
+                                after: get_after_value(&n, &rc.change)?,
+                            },
+                        );
+                    }
+
+                    out.0.push(TrowelDiffEntry {
+                        verb,
+                        resource_path: rc.address.clone(),
+                        values,
+                    });
                 }
-
-                out.0.push(TrowelDiffEntry {
-                    verb,
-                    resource_path: rc.address.clone(),
-                    values,
-                });
             }
         }
 
@@ -365,27 +367,27 @@ mod tests {
             terraform_version: "".to_string(),
             planned_values: TfPlanPlannedValues {
                 root_module: TfPlanPlannedValuesRootModule {
-                    resources: vec![],
-                    child_modules: vec![],
+                    resources: Some(vec![]),
+                    child_modules: Some(vec![]),
                 },
             },
-            resource_changes: vec![],
-            prior_state: TfPlanPriorState {
+            resource_changes: Some(vec![]),
+            prior_state: Some(TfPlanPriorState {
                 format_version: "".to_string(),
                 terraform_version: "".to_string(),
                 values: TfPlanPlannedValues {
                     root_module: TfPlanPlannedValuesRootModule {
-                        resources: vec![],
-                        child_modules: vec![],
+                        resources: Some(vec![]),
+                        child_modules: Some(vec![]),
                     },
                 },
-            },
+            }),
             configuration: TfPlanConfiguration {
-                provider_config: HashMap::new(),
+                provider_config: Some(HashMap::new()),
                 root_module: Value::Null,
             },
-            relevant_attributes: vec![],
-            checks: vec![],
+            relevant_attributes: Some(vec![]),
+            checks: Some(vec![]),
             timestamp: "".to_string(),
             errored: false,
         };
@@ -400,11 +402,11 @@ mod tests {
             terraform_version: "".to_string(),
             planned_values: TfPlanPlannedValues {
                 root_module: TfPlanPlannedValuesRootModule {
-                    resources: vec![],
-                    child_modules: vec![],
+                    resources: Some(vec![]),
+                    child_modules: Some(vec![]),
                 },
             },
-            resource_changes: vec![TfPlanResourceChange {
+            resource_changes: Some(vec![TfPlanResourceChange {
                 address: "apple".to_string(),
                 mode: "orange".to_string(),
                 resource_type: "banana".to_string(),
@@ -421,23 +423,23 @@ mod tests {
                 },
                 action_reason: None,
                 module_address: None,
-            }],
-            prior_state: TfPlanPriorState {
+            }]),
+            prior_state: Some(TfPlanPriorState {
                 format_version: "".to_string(),
                 terraform_version: "".to_string(),
                 values: TfPlanPlannedValues {
                     root_module: TfPlanPlannedValuesRootModule {
-                        resources: vec![],
-                        child_modules: vec![],
+                        resources: Some(vec![]),
+                        child_modules: Some(vec![]),
                     },
                 },
-            },
+            }),
             configuration: TfPlanConfiguration {
-                provider_config: HashMap::new(),
+                provider_config: Some(HashMap::new()),
                 root_module: Value::Null,
             },
-            relevant_attributes: vec![],
-            checks: vec![],
+            relevant_attributes: Some(vec![]),
+            checks: Some(vec![]),
             timestamp: "".to_string(),
             errored: false,
         };

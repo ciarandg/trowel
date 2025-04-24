@@ -11,11 +11,11 @@ pub struct TfPlan {
     pub format_version: String,
     pub terraform_version: String,
     pub planned_values: TfPlanPlannedValues,
-    pub resource_changes: Vec<TfPlanResourceChange>,
-    pub prior_state: TfPlanPriorState,
+    pub resource_changes: Option<Vec<TfPlanResourceChange>>,
+    pub prior_state: Option<TfPlanPriorState>,
     pub configuration: TfPlanConfiguration,
-    pub relevant_attributes: Vec<TfPlanRelevantAttribute>,
-    pub checks: Vec<TfPlanCheck>,
+    pub relevant_attributes: Option<Vec<TfPlanRelevantAttribute>>,
+    pub checks: Option<Vec<TfPlanCheck>>,
     pub timestamp: String,
     pub errored: bool,
 }
@@ -29,8 +29,8 @@ pub struct TfPlanPlannedValues {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanPlannedValuesRootModule {
-    pub resources: Vec<TfPlanPlannedValuesModuleResource>,
-    pub child_modules: Vec<TfPlanPlannedValuesChildModule>,
+    pub resources: Option<Vec<TfPlanPlannedValuesModuleResource>>,
+    pub child_modules: Option<Vec<TfPlanPlannedValuesChildModule>>,
 }
 
 #[derive(Deserialize)]
@@ -146,7 +146,7 @@ type TfPlanPriorStateValues = TfPlanPlannedValues;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TfPlanConfiguration {
-    pub provider_config: HashMap<String, TfPlanConfigurationProviderConfig>,
+    pub provider_config: Option<HashMap<String, TfPlanConfigurationProviderConfig>>,
     pub root_module: Value,
 }
 

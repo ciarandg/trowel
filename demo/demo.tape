@@ -1,9 +1,9 @@
 Output demo.gif
 
 Set Shell "bash"
-Set FontSize 32
-Set Width 1920
-Set Height 1080
+Set FontSize 24
+Set Width 1600
+Set Height 800
 Set Theme "GruvboxDark"
 
 Type "./result/bin/trowel-rs -p ./demo/plan.json" Sleep 2s  Enter

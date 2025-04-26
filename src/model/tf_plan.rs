@@ -11,12 +11,15 @@ pub struct TfPlan {
     pub format_version: String,
     pub terraform_version: String,
     pub planned_values: TfPlanPlannedValues,
+    pub resource_drift: Option<Vec<Value>>,
     pub resource_changes: Option<Vec<TfPlanResourceChange>>,
     pub prior_state: Option<TfPlanPriorState>,
     pub configuration: TfPlanConfiguration,
     pub relevant_attributes: Option<Vec<TfPlanRelevantAttribute>>,
     pub checks: Option<Vec<TfPlanCheck>>,
     pub timestamp: String,
+    pub applyable: Option<bool>,
+    pub complete: Option<bool>,
     pub errored: bool,
 }
 
@@ -41,6 +44,7 @@ pub struct TfPlanPlannedValuesModuleResource {
     #[serde(rename = "type")]
     pub resource_type: String,
     pub name: String,
+    pub index: Option<String>,
     pub provider_name: String,
     pub schema_version: u8,
     pub values: HashMap<String, Value>,
@@ -64,6 +68,7 @@ pub struct TfPlanResourceChange {
     #[serde(rename = "type")]
     pub resource_type: String,
     pub name: String,
+    pub index: Option<String>,
     pub provider_name: String,
     pub change: TfPlanResourceChangeChange,
     pub action_reason: Option<String>,
@@ -79,6 +84,7 @@ pub struct TfPlanResourceChangeChange {
     pub after_unknown: HashMap<String, Value>,
     pub before_sensitive: SensitiveValues,
     pub after_sensitive: SensitiveValues,
+    pub importing: Option<Value>,
     pub replace_paths: Option<Vec<Vec<String>>>,
 }
 

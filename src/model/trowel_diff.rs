@@ -390,6 +390,9 @@ mod tests {
             checks: Some(vec![]),
             timestamp: "".to_string(),
             errored: false,
+            resource_drift: None,
+            applyable: None,
+            complete: None,
         };
         let diff = TrowelDiff::from_tf_plan(&plan);
         assert_eq!(diff.unwrap().0.len(), 0)
@@ -420,9 +423,11 @@ mod tests {
                     before_sensitive: SensitiveValues::new(None),
                     after_sensitive: SensitiveValues::new(None),
                     replace_paths: None,
+                    importing: None,
                 },
                 action_reason: None,
                 module_address: None,
+                index: None,
             }]),
             prior_state: Some(TfPlanPriorState {
                 format_version: "".to_string(),
@@ -442,6 +447,9 @@ mod tests {
             checks: Some(vec![]),
             timestamp: "".to_string(),
             errored: false,
+            resource_drift: None,
+            applyable: None,
+            complete: None,
         };
         let diff = TrowelDiff::from_tf_plan(&plan);
         assert_eq!(diff.as_ref().unwrap().0.len(), 1);
@@ -704,6 +712,7 @@ mod tests {
             )]))),
             after_sensitive: SensitiveValues::new(None),
             replace_paths: None,
+            importing: None,
         };
 
         assert_eq!(
@@ -733,6 +742,7 @@ mod tests {
             )]))),
             after_sensitive: SensitiveValues::new(None),
             replace_paths: None,
+            importing: None,
         };
 
         assert!(get_before_value(&"apple".to_string(), &change).is_err()); // present in before_sensitive but missing in before
@@ -758,6 +768,7 @@ mod tests {
                 Value::Bool(true),
             )]))),
             replace_paths: None,
+            importing: None,
         };
 
         assert_eq!(
@@ -791,6 +802,7 @@ mod tests {
                 Value::String("banana".to_string()),
             )]))),
             replace_paths: None,
+            importing: None,
         };
 
         assert!(get_after_value(&"apple".to_string(), &change).is_err()); // present in after_sensitive but missing in after

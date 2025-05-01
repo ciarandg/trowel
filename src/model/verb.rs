@@ -100,9 +100,11 @@ mod tests {
                 before_sensitive: SensitiveValues::new(None),
                 after_sensitive: SensitiveValues::new(None),
                 replace_paths: None,
+                importing: None,
             },
             action_reason: None,
             module_address: None,
+            index: None,
         };
 
         assert!(Verb::from_resource(&actions).is_err());

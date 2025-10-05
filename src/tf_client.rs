@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use tempfile::NamedTempFile;
 use tokio::{
-    io::{AsyncBufReadExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
     sync::mpsc,
 };
 
@@ -24,7 +24,7 @@ impl TfClient {
             .arg("-no-color")
             .arg("-out")
             .arg(tempfile.path())
-            .stderr(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;
 
@@ -33,12 +33,22 @@ impl TfClient {
             "Failed to take stdout for plan process",
         ))?;
         let mut reader = BufReader::new(stdout).lines();
-
         while let Some(line) = reader.next_line().await? {
             tx.send(line).await.ok();
         }
 
-        Ok(tempfile)
+        let status = child.wait().await?;
+        if status.success() {
+            Ok(tempfile)
+        } else {
+            let mut stderr = child.stderr.take().ok_or(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Failed to take stderr for plan process",
+            ))?;
+            let mut buf = String::new();
+            stderr.read_to_string(&mut buf).await?;
+            Err(io::Error::new(io::ErrorKind::Other, buf))
+        }
     }
 
     pub fn show_as_json(&self, binary_plan_file: &PathBuf) -> Result<String, io::Error> {
